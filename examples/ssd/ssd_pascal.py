@@ -1,4 +1,6 @@
 from __future__ import print_function
+import matplotlib
+matplotlib.use('pdf')
 import caffe
 from caffe.model_libs import *
 from google.protobuf import text_format
