@@ -3,7 +3,8 @@ import os
 import shutil
 import subprocess
 import sys
-
+import matplotlib
+matplotlib.use('pdf')
 from caffe.proto import caffe_pb2
 from google.protobuf import text_format
 

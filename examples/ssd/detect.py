@@ -1,18 +1,20 @@
 import matplotlib
 matplotlib.use('pdf')
-import caffe
+
 import sys
+import os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../python'))
+import caffe
 import cv2
 import tornado
 import tornado.ioloop
 import tornado.httpclient
 import tornado.web
-import os
 import numpy as np
 caffe.set_mode_gpu()
 caffe.set_device(4)
-prototxt = '/home/kevin/ssd/caffe/models/VGGNet/VOC0712/SSD_300x300/deploy.prototxt'
-caffemodel = '/home/kevin/ssd/caffe/models/VGGNet/VOC0712/SSD_300x300/VGG_VOC0712_SSD_300x300_iter_60000.caffemodel'
+prototxt = '/home/kevin/my_ssd/caffe/models/VGGNet/VOC0712/SSD_300x300/deploy.prototxt'
+caffemodel = '/home/kevin/my_ssd/caffe/models/VGGNet/VOC0712/SSD_300x300/VGG_VOC0712_SSD_300x300_iter_60000.caffemodel'
 mean = np.array([104, 117, 123], np.uint8)
 net = caffe.Detector(prototxt, caffemodel,mean=mean)
 
@@ -23,11 +25,13 @@ def im_detect(net, im):
     blob = np.zeros((1, 3, 300,300), np.float32)
     
     in_ = net.inputs[0]
+    import time
+    pre_time = time.time()
     blob[0] = net.transformer.preprocess(in_, r_im)
     forward_kwargs = {in_: blob}
     blobs_out = net.forward(**forward_kwargs)
     res = blobs_out[net.outputs[0]] 
-
+    print 'run time', time.time() - pre_time
     font = cv2.FONT_HERSHEY_SIMPLEX
     for i in range(res.shape[2]):
         box = res[0,0,i]
