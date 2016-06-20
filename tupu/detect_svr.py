@@ -4,20 +4,24 @@ matplotlib.use('pdf')
 import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../python'))
-import caffe
-import cv2
+#import caffe
+#import cv2
 import tornado
 import tornado.ioloop
 import tornado.httpclient
 import tornado.web
 import numpy as np
-caffe.set_mode_gpu()
-caffe.set_device(4)
+#caffe.set_mode_gpu()
+#caffe.set_device(1)
 prototxt = '/home/kevin/my_ssd/caffe/models/VGGNet/VOC0712/SSD_300x300/deploy.prototxt'
-caffemodel = '/home/kevin/my_ssd/caffe/models/VGGNet/VOC0712/SSD_300x300/VGG_VOC0712_SSD_300x300_iter_60000.caffemodel'
-mean = np.array([104, 117, 123], np.uint8)
-net = caffe.Detector(prototxt, caffemodel,mean=mean)
+caffemodel = '/home/kevin/my_ssd/caffe/models/VGGNet/VOC0712/SSD_300x300/VGG_VOC0712_SSD_300x300_iter_50000.caffemodel'
+#mean = np.array([104, 117, 123], np.uint8)
+#net = caffe.Detector(prototxt, caffemodel,mean=mean)
+import ssd_detector
 
+ssd_detector.gpu_init(1)
+net = ssd_detector.SSDDetector(caffemodel, prototxt, None)
+'''
 def im_detect(net, im):
     h = im.shape[0]
     w = im.shape[1]
@@ -37,7 +41,7 @@ def im_detect(net, im):
         box = res[0,0,i]
         label = box[1]
         score = box[2]
-        if score < 0.6:
+        if score < 0.1:
             continue
         xmin = int(box[3]*w)
         ymin = int(box[4]*h)
@@ -46,17 +50,18 @@ def im_detect(net, im):
        
         cv2.rectangle(im,(xmin, ymin), (xmax, ymax), (0,255,0), 2)
         cv2.putText(im, str(label), (xmin, ymin), font, 0.5, (0, 0, 255), 1)
+'''
+
 class TestHandler(tornado.web.RequestHandler):
     def post(self):
         global net
         for f in self.request.files['file']:
             im = cv2.imdecode(np.asarray(bytearray(f['body']), dtype = np.uint8),\
                               cv2.IMREAD_COLOR)
-            im_detect(net, im)
-            r, i = cv2.imencode('.jpg', im)
-            if i.data:
+            image_data = net.detect(im)
+            if image_data:
                 self.set_header('Content-Type', 'image/jpg')
-                self.write(bytes(i.data))
+                self.write(bytes(image_data))
 
 class MainHandler(tornado.web.RequestHandler):
     def get(self):

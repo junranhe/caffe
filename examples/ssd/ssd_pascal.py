@@ -284,7 +284,7 @@ clip = True
 
 # Solver parameters.
 # Defining which GPUs to use.
-gpus = "4,5,6,7"
+gpus = "6,7"
 gpulist = gpus.split(",")
 num_gpus = len(gpulist)
 
@@ -329,7 +329,7 @@ solver_param = {
     'gamma': 0.1,
     'momentum': 0.9,
     'iter_size': iter_size,
-    'max_iter': 60000,
+    'max_iter': 80000,
     'snapshot': 40000,
     'display': 10,
     'average_loss': 10,
