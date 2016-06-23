@@ -37,6 +37,12 @@ class SSDDetector(object):
             ymin = float(int(box[4]*h))
             xmax = float(int(box[5]*w))
             ymax = float(int(box[6]*h))
+            if xmin < 0 or xmin >= w or xmax < 0 or xmax >= w:
+                continue
+            if ymin < 0 or ymin >= h or ymax < 0 or ymax >= h:
+                continue
+            if xmin >= xmax or ymin >= ymax:
+                continue
             det = [xmin, ymin, xmax, ymax, score]
             if label not in dets:
                 dets[label] = []
