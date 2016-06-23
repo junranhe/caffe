@@ -5,7 +5,7 @@ matplotlib.use('pdf')
 import os
 import sys
 caffe_root = os.path.dirname(os.path.abspath(__file__)) + '/..'
-sys.path.insert(0, caffe_root + '/python') 
+sys.path.insert(0, caffe_root + '/python')
 import caffe
 from caffe.model_libs import *
 from google.protobuf import text_format
@@ -226,12 +226,12 @@ snapshot_prefix = "{}/{}".format(snapshot_dir, model_name)
 # Stores the test image names and sizes. Created by data/VOC0712/create_list.sh
 name_size_file = caffe_root + "/data/VOC0712/test_name_size.txt"
 # The pretrained model. We use the Fully convolutional reduced (atrous) VGGNet.
-pretrain_model = json_data['pretrain_model'] + '/VGG_ILSVRC_16_layers_fc_reduced.caffemodel'  
+pretrain_model = json_data['pretrain_model'] + '/VGG_ILSVRC_16_layers_fc_reduced.caffemodel'
 # Stores LabelMapItem.
 label_map_file = caffe_root + "/data/VOC0712/labelmap_voc.prototxt"
 
 # MultiBoxLoss parameters.
-num_classes = json_data['num_cls'] + 1
+num_classes = json_data['num_labels'] + 1
 share_location = True
 background_label_id=0
 train_on_diff_gt = True
@@ -365,7 +365,7 @@ det_out_param = {
     'num_classes': num_classes,
     'share_location': share_location,
     'background_label_id': background_label_id,
-    'nms_param': {'nms_threshold': 0.45, 'top_k': 400},
+    'nms_param': {'nms_threshold': 0.05, 'top_k': 400},
     #'save_output_param': {
     #    'output_directory': output_result_dir,
     #    'output_name_prefix': "comp4_det_test_",
