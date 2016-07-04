@@ -3,9 +3,9 @@ matplotlib.use('pdf')
 
 import sys
 import os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../python'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../python'))
 #import caffe
-#import cv2
+import cv2
 import tornado
 import tornado.ioloop
 import tornado.httpclient
@@ -13,8 +13,8 @@ import tornado.web
 import numpy as np
 #caffe.set_mode_gpu()
 #caffe.set_device(1)
-prototxt = '/home/kevin/my_ssd/caffe/models/VGGNet/VOC0712/SSD_300x300/deploy.prototxt'
-caffemodel = '/home/kevin/my_ssd/caffe/models/VGGNet/VOC0712/SSD_300x300/VGG_VOC0712_SSD_300x300_iter_50000.caffemodel'
+prototxt = '/world/data-c5/ssd_models/text_batch_64/deploy.prototxt'
+caffemodel = '/world/data-c5/ssd_models/text_batch_64/VGG_SSD_300x300_iter_80000.caffemodel'
 #mean = np.array([104, 117, 123], np.uint8)
 #net = caffe.Detector(prototxt, caffemodel,mean=mean)
 import ssd_detector
@@ -58,7 +58,8 @@ class TestHandler(tornado.web.RequestHandler):
         for f in self.request.files['file']:
             im = cv2.imdecode(np.asarray(bytearray(f['body']), dtype = np.uint8),\
                               cv2.IMREAD_COLOR)
-            image_data = net.detect(im)
+            image_data = net.detect_image(im)
+	    print 'ok'
             if image_data:
                 self.set_header('Content-Type', 'image/jpg')
                 self.write(bytes(image_data))

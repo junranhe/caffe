@@ -3,7 +3,7 @@ matplotlib.use('pdf')
 import lmdb
 import sys
 import os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../python'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../python'))
 import caffe
 import caffe.proto.caffe_pb2 as pb
 import cv2
@@ -100,9 +100,16 @@ def gen_data_from_json(json_data, db_path):
     db.close()
     print 'finish:', db_path
 
+def make_batch(config, util):
+    batches_dir = config['batches_dir']
+    if not os.path.exists(batches_dir):
+        os.makedirs(batches_dir)
+    gen_data_from_json(config, batches_dir)
+'''
 if __name__ == "__main__":
     #json_path = '/world/data-c6/dl-data/57328ea10c4ac91c23d95f72/57500cf408b3893435513c63/14648639883950.588590997736901.json'
     json_path = '/world/data-c6/dl-data/57328ea10c4ac91c23d95f72/575f6689a3c08454158bd197/14658699625140.9822487544734031.json'
     db_path = 'train_lmdb'
     json_data = json.load(open(json_path, 'r'))
     gen_data_from_json(json_data,db_path)
+'''
