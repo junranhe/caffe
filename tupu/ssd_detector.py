@@ -16,8 +16,8 @@ class SSDDetector(object):
         self.mean = np.array([104, 117, 123], np.uint8)
         self.net = caffe.Detector(prototxt, caffemodel,mean=self.mean)
 
-    def detect(self, im):
-    	h = im.shape[0]
+    def internal_detect(self, im):
+        h = im.shape[0]
     	w = im.shape[1]
     	r_im = cv2.resize(im, (300, 300))
     	blob = np.zeros((1, 3, 300,300), np.float32)
@@ -26,7 +26,8 @@ class SSDDetector(object):
     	forward_kwargs = {in_: blob}
     	blobs_out = self.net.forward(**forward_kwargs)
     	res = blobs_out[self.net.outputs[0]]
-        dets = {}
+        dets = []
+        clss = []
     	for i in range(res.shape[2]):
             box = res[0,0,i]
             label = str(int(box[1]))
@@ -44,108 +45,208 @@ class SSDDetector(object):
             if xmin >= xmax or ymin >= ymax:
                 continue
             det = [xmin, ymin, xmax, ymax, score]
-            if label not in dets:
-                dets[label] = []
-            dets[label].append(det)
+            dets.append(det)
+            clss.append(label)
+        return clss,dets
+
+    def detect(self, im):
+        clss,dets = self.internal_detect(im)
+        dets_table = {}
+        for i in range(len(clss)):
+            k = clss[i]
+            if k not in dets_table:
+                dets_table[k] = []
+            dets_table[k].append(dets[i])
         np_dets = {}
-        for k, v in dets.items():
+        for k, v in dets_table.items():
             np_dets[k] = np.array(v, np.float32)
 	#print 'np_dets:', np_dets
         return np_dets
-    def draw_detection_result(self, im_data, class_name, dets):
+    def draw_detection_result(self, im_data, class_name, dets, color=None):
+        if color is None:
+            color = (0,255,0)
         font = cv2.FONT_HERSHEY_SIMPLEX
         #print self.ocr_group(dets)
+        #print 'draw restult:'
         for i in range(dets.shape[0]):
             bbox = dets[i, :4]
             score = dets[i, -1]
+            #print chr(int(class_name))
             cv2.rectangle(im_data, (int(bbox[0]), int(bbox[1])),(int(bbox[2]), int(bbox[3])),\
-                                  (0, 255, 0), 2)
-            cv2.putText(im_data, str(i), (int(bbox[0]), int(bbox[1])), font, 0.5, (0,0,255), 1)
+                                  color, 1)
+            cv2.putText(im_data, str(class_name), (int(bbox[0]), int(bbox[1])), font, 0.5, (0,0,255), 1)
 
     def ocr_group(self, dets):
-	l = dets.shape[0]
+        dets = np.array(dets, np.float32)
+        l = dets.shape[0]
         used = {}
         res = []
         while len(used) < l:
-	    max_line = []
-	    for i in range(l):
-		if i in used:
-		    continue
-		line = [i]
+            max_line = []
+            for i in range(l):
+                if i in used:
+                    continue
+                line = [i]
                 ymin = dets[i][1]
-	        ymax = dets[i][3]
+                ymax = dets[i][3]
                 r = (ymax - ymin)/2
-		y_middle = (ymin + ymax) /2
-		for j in range(l):
-		    if i == j or j in used:
-			continue
-		    other_ymin = dets[j][1]
-		    other_ymax = dets[j][3]
-		    other_y_middle = (other_ymin + other_ymax)/2
-		    other_r = (other_ymax - other_ymin)/2
-		    distance = abs(y_middle - other_y_middle)
-		    if distance < r/2 and distance < other_r/2:
-			line.append(j)
-		if len(line) > len(max_line):
-		    max_line = line
-		    def x_cmp(a, b):
-			x1 = dets[a][0]
-			x2 = dets[b][0]
-			if x1 < x2:
-			    return -1
-			elif x1 > x2:
-			    return 1
-			return 0
-		    max_line.sort(x_cmp)
-		xmin = dets[i][0]
-		xmax = dets[i][2]
-		x_r = (xmax - xmin)/2
-		x_middle = (xmin + xmax) / 2 
-		line = [i]
-		for j in range(l):
-		    if i == j or j in used:
-			continue
-		    other_xmin = dets[j][0]
-		    other_xmax = dets[j][2]
-		    other_x_middle = (other_xmin + other_xmax)/2
-		    other_x_r = (other_xmax - other_xmin)/2
-		    distance = abs(x_middle - other_x_middle)
-		    if distance < x_r/2 and distance < other_x_r/2:
-			line.append(j)
-		if len(line) > len(max_line):
-		    max_line = line
-		    def y_cmp(a, b):
-			y1 = dets[a][1]
-			y2 = dets[b][1]
-			if y1 < y2:
-			    return -1
-			elif y1 > y2:
-			    return 1
-			return 0
-		    max_line.sort(y_cmp)
-
-	    assert len(max_line) > 0
-	    for item in max_line:
-		used[item] = True
-	    res.append(max_line)
-	def line_cmp(a,b):
-	    assert len(a) > 0 and len(b) > 0
-	    x_a = dets[a[0]][0]
-	    y_a = dets[a[0]][1]
-	    x_b = dets[b[0]][0]
-	    y_b = dets[b[0]][1]
-	    if y_a < y_b:
-		return -1
-	    elif y_a > y_b:
-		return 1
-	    elif x_a < x_b:
-		return -1
-	    elif x_a > x_b:
-	   	return 1
-	    return 0
-	res.sort(line_cmp)
-	return res
-
+                y_middle = (ymin + ymax) /2
+                for j in range(l):
+                    if i == j or j in used:
+                        continue
+                    other_ymin = dets[j][1]
+                    other_ymax = dets[j][3]
+                    other_y_middle = (other_ymin + other_ymax)/2
+                    other_r = (other_ymax - other_ymin)/2
+                    distance = abs(y_middle - other_y_middle)
+                    if distance < r/2 and distance < other_r/2:
+                        line.append(j)
+                if len(line) > len(max_line):
+                    max_line = line
+                    def x_cmp(a, b):
+                        x1 = dets[a][0]
+                        x2 = dets[b][0]
+                        if x1 < x2:
+                            return -1
+                        elif x1 > x2:
+                            return 1
+                        return 0
+                    max_line.sort(x_cmp)
+                xmin = dets[i][0]
+                xmax = dets[i][2]
+                x_r = (xmax - xmin)/2
+                x_middle = (xmin + xmax) / 2 
+                line = [i]
+                for j in range(l):
+                    if i == j or j in used:
+                        continue
+                    other_xmin = dets[j][0]
+                    other_xmax = dets[j][2]
+                    other_x_middle = (other_xmin + other_xmax)/2
+                    other_x_r = (other_xmax - other_xmin)/2
+                    distance = abs(x_middle - other_x_middle)
+                    if distance < x_r/2 and distance < other_x_r/2:
+                        line.append(j)
+                if len(line) > len(max_line):
+                    max_line = line
+                    def y_cmp(a, b):
+                        y1 = dets[a][1]
+                        y2 = dets[b][1]
+                        if y1 < y2:
+                            return -1
+                        elif y1 > y2:
+                            return 1
+                        return 0
+                    max_line.sort(y_cmp)
+            assert len(max_line) > 0
+            for item in max_line:
+                used[item] = True
+            res.append(max_line)
+        def line_cmp(a,b):
+            assert len(a) > 0 and len(b) > 0
+            x_a = dets[a[0]][0]
+            y_a = dets[a[0]][1]
+            x_b = dets[b[0]][0]
+            y_b = dets[b[0]][1]
+            if y_a < y_b:
+                return -1
+            elif y_a > y_b:
+                return 1
+            elif x_a < x_b:
+                return -1
+            elif x_a > x_b:
+                return 1
+            return 0
+        res.sort(line_cmp)
+        return res
+    def nms(self, clss, dets, th):
+        used = {}
+        nms_index = []
+        while len(used) < len(dets):
+            max_score = 0
+            max_index = -1
+            for i in range(len(dets)):
+                if i in used:
+                    continue
+                score = dets[i][-1]
+                if score > max_score:
+                    max_score = score
+                    max_index = i
+            if max_index == -1:
+                break
+            nms_index.append(max_index)
+            used[max_index] = True
+            for i in range(len(dets)):
+                if i in used:
+                    continue
+                def area(rec):
+                    x1 = rec[0]
+                    y1 = rec[1]
+                    x2 = rec[2]
+                    y2 = rec[3]
+                    if x1 >= x2:
+                        return 0
+                    if y1 >= y2:
+                        return 0
+                    return (x2-x1)*(y2-y1)
+                def interscet(a, b):
+                    x1 = max(a[0], b[0])
+                    y1 = max(a[1], b[1])
+                    x2 = min(a[2], b[2])
+                    y2 = min(a[3], b[3])
+                    return [x1,y1,x2,y2,0]
+                max_area = area(dets[max_index])
+                other_area = area(dets[i])
+                inter_det = interscet(dets[max_index], dets[i])
+                inter_area = area(inter_det)
+                if inter_area > th*max_area or inter_area > th*other_area:
+                    used[i] = True
+        new_clss = []
+        new_dets = []
+        for i in nms_index:
+            new_clss.append(clss[i])
+            new_dets.append(dets[i])
+        return new_clss, new_dets 
+                
+    def detect_image_ex(self, im_data):
+        clss,dets = self.internal_detect(im_data)
+        print 'old:', len(dets)
+        clss,dets = self.nms(clss, dets, 0.9)
+        print 'nms:',len(dets)
+        lines = self.ocr_group(dets)
+        print lines
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        for l in lines:
+            print [chr(int(clss[a])) for a in l]
+            import random
+            color = (random.randint(0,255), random.randint(0,255), random.randint(0,255))
+            for i in l:
+                class_name = chr(int(clss[i]))
+                bbox = dets[i][ :4]
+                score = dets[i][-1]
+                cv2.rectangle(im_data, (int(bbox[0]), int(bbox[1])),(int(bbox[2]), int(bbox[3])),\
+                                  color, 2)
+                cv2.putText(im_data, str(class_name), (int(bbox[0]), int(bbox[1])), font, 0.5, (0,0,255), 1)
+        r, i = cv2.imencode('.jpg', im_data)
+        return i.data
+        
+    def detect_group(self, im_data):
+        clss,dets = self.internal_detect(im_data)
+        clss,dets = self.nms(clss, dets, 0.9)
+        lines = self.ocr_group(dets)
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        new_clss = []
+        new_dets = []
+        new_groups = []
+        for group, l in enumerate(lines):
+            for i in l:
+                bbox = dets[i][ :4]
+                score = dets[i][-1]
+                new_clss.append(clss[i])
+                new_dets.append(dets[i])
+                new_groups.append(group)
+        return new_clss, new_dets, new_groups
+     
     def detect_image(self, im_data):
         class_res = self.detect(im_data)
         for k, v in class_res.items():

@@ -158,7 +158,7 @@ batch_sampler = [
         },
         ]
 train_transform_param = {
-        'mirror': True,
+        'mirror': False,
         'mean_value': [104, 117, 123],
         'resize_param': {
                 'prob': 1,
@@ -343,7 +343,7 @@ solver_param = {
     'gamma': 0.1,
     'momentum': 0.9,
     'iter_size': iter_size,
-    'max_iter': 80000,
+    'max_iter': max_iter,
     'snapshot': 10000,
     'display': 10,
     'average_loss': 10,
