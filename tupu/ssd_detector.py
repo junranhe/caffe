@@ -1,10 +1,11 @@
+# -*- coding: utf-8 -*- 
 import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../python'))
 import cv2
 import caffe
 import numpy as np
-
+import math
 def gpu_init(id):
     caffe.set_mode_gpu()
     caffe.set_device(id)
@@ -81,37 +82,44 @@ class SSDDetector(object):
         l = dets.shape[0]
         used = {}
         res = []
+        k_array = [math.tan(math.radians(degree)) for degree in [0,4,8,12,16,20,176,172,168,164,160]]
+        def compute_distance(k,x0,y0, x1, y1):
+            b = y0 - (k*x0)
+            d = abs(k*x1 - y1 + b)/math.sqrt(k*k + 1)
+            return d
+        def compute_center(x0,y0,x1,y1):
+            x_c = (x0 + x1)/2
+            y_c = (y0 + y1)/2
+            x_d = (x1 - x0)
+            y_d = (y1 - y0)
+            r = math.sqrt(x_d*x_d + y_d*y_d)/2
+            return x_c, y_c , r
         while len(used) < l:
             max_line = []
             for i in range(l):
                 if i in used:
                     continue
-                line = [i]
-                ymin = dets[i][1]
-                ymax = dets[i][3]
-                r = (ymax - ymin)/2
-                y_middle = (ymin + ymax) /2
-                for j in range(l):
-                    if i == j or j in used:
-                        continue
-                    other_ymin = dets[j][1]
-                    other_ymax = dets[j][3]
-                    other_y_middle = (other_ymin + other_ymax)/2
-                    other_r = (other_ymax - other_ymin)/2
-                    distance = abs(y_middle - other_y_middle)
-                    if distance < r/2 and distance < other_r/2:
-                        line.append(j)
-                if len(line) > len(max_line):
-                    max_line = line
-                    def x_cmp(a, b):
-                        x1 = dets[a][0]
-                        x2 = dets[b][0]
-                        if x1 < x2:
-                            return -1
-                        elif x1 > x2:
-                            return 1
-                        return 0
-                    max_line.sort(x_cmp)
+                for k in k_array:
+                    line = [i]
+                    for j in range(l):
+                        if i == j or j in used:
+                            continue
+                        x0, y0, r0 =compute_center(dets[i][0], dets[i][1], dets[i][2], dets[i][3])
+                        x1, y1, r1 =compute_center(dets[j][0], dets[j][1], dets[j][2], dets[j][3])
+                        distance = compute_distance(k, x0, y0, x1, y1) 
+                        if distance < r0/4 and distance < r1/4:
+                            line.append(j)
+                    if len(line) > len(max_line):
+                        max_line = line
+                        def tm_cmp(a, b):
+                            x1 = dets[a][0]
+                            x2 = dets[b][0]
+                            if x1 < x2:
+                                return -1
+                            elif x1 > x2:
+                                return 1
+                            return 0
+                        max_line.sort(tm_cmp)
                 xmin = dets[i][0]
                 xmax = dets[i][2]
                 x_r = (xmax - xmin)/2
@@ -208,25 +216,29 @@ class SSDDetector(object):
             new_dets.append(dets[i])
         return new_clss, new_dets 
                 
-    def detect_image_ex(self, im_data):
+    def detect_image_ex(self, im_data, label_dict = None):
         clss,dets = self.internal_detect(im_data)
         print 'old:', len(dets)
-        clss,dets = self.nms(clss, dets, 0.9)
+        clss,dets = self.nms(clss, dets, 0.6)
         print 'nms:',len(dets)
         lines = self.ocr_group(dets)
         print lines
         font = cv2.FONT_HERSHEY_SIMPLEX
         for l in lines:
-            print [chr(int(clss[a])) for a in l]
+            #print u'text:',u','.join([label_dict[int(clss[a])] for a in l])
+           
             import random
             color = (random.randint(0,255), random.randint(0,255), random.randint(0,255))
             for i in l:
-                class_name = chr(int(clss[i]))
+                if label_dict is not None:
+                    class_name = label_dict[int(clss[i])]
+                else:
+                    class_name = chr(int(clss[i]))
                 bbox = dets[i][ :4]
                 score = dets[i][-1]
                 cv2.rectangle(im_data, (int(bbox[0]), int(bbox[1])),(int(bbox[2]), int(bbox[3])),\
                                   color, 2)
-                cv2.putText(im_data, str(class_name), (int(bbox[0]), int(bbox[1])), font, 0.5, (0,0,255), 1)
+                #cv2.putText(im_data, class_name, (int(bbox[0]), int(bbox[1])), font, 0.5, (0,0,255), 1)
         r, i = cv2.imencode('.jpg', im_data)
         return i.data
         

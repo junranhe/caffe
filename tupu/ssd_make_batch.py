@@ -23,14 +23,27 @@ def read_file_datum(filepath, datum):
     datum.data = str(i.data)
     return h, w
 
-def object2string(filepath, obj):
+def is_number(uchar):
+    return uchar >= u'\u0030' and uchar <=u'\u0039' 
+def is_char(uchar):
+    return (uchar >= u'\u0041' and uchar<=u'\u005a') or (uchar >= u'\u0061' and uchar<=u'\u007a')
+
+def object2string(filepath, obj, label_table=None):
     an_datum = pb.AnnotatedDatum()
     an_datum.type = pb.AnnotatedDatum.BBOX
     h, w = read_file_datum(filepath, an_datum.datum)
     group = {}
     for box in obj:
         #cls = box['name']
-        cls = ord(box['label'])
+        if label_table is not None:
+            tm_name = box['label']
+            if not (is_number(tm_name) or is_char(tm_name)):
+                tm_name = '*'
+            if tm_name not in label_table:
+                label_table[tm_name] = len(label_table) + 1
+            cls = label_table[tm_name]
+        else:
+            cls = int(box['name'])+1
         if cls not in group:
             group[cls] = []
         group[cls].append(box)
@@ -88,7 +101,7 @@ def gen_data_from_json(json_data, db_path):
                     break
             if is_ok:
                 objs[filepath] = label
-    print 'total image:%d' % len(objs)
+    print 'A total of %d images' % len(objs)
     cnt = 0
     arr = objs.items()
     random.shuffle(arr)
@@ -98,28 +111,44 @@ def gen_data_from_json(json_data, db_path):
             key = '%8d' % cnt
             in_txn.put(key, object2string(k, v))
             cnt += 1
+            if cnt % 1000 == 0:
+                print 'MeanProcessed %d images' % cnt
     db.close()
-    print 'finish:', db_path
-def gen_data_from_json_simple_line(json_data, db_path):
+    print 'mean_value'
+
+def gen_data_from_json_simple_line(json_data, db_path, dict_path):
     reload(sys)
     sys.setdefaultencoding('utf-8')
-    label_path = json_data.get('fileListJSON')
-    f = open(label_path, 'r')
-    
+    #label_path = json_data.get('fileListJSON')
+    #f = open(label_path, 'r')
+    f = open('/world/data-gpu-57/Tranning-data/frame_Text_rotate/export_full.json', 'r')
+    f1 = open('/world/data-gpu-57/Tranning-data/frame_Text4/export_full.json', 'r')
     lines = f.readlines()
+    lines1 = f1.readlines()
+    #lines = lines[0: int(len(lines)/2)]
+    #lines1 = lines1[0: int(len(lines1)/2)]
+    lines += lines1
     #data_set = json.load(f)
     #rooturis = json_data['rootUris']
     objs = {}
     #for k, v in data_set.items():
-    for l in lines:
-        tm_json = json.loads(l)
+    for line_index, l in enumerate(lines):
+        #if len(objs) > 100:
+        #    break
+        try:
+            tm_json = json.loads(l.strip('\n'))
+        except:
+            print 'error line index:', line_index
+            continue
+        if len(objs) % 1000 == 0:
+            print 'check:', len(objs)
         for k, item in tm_json.items():
             if len(item) == 0:
                 continue
             #rootpath = rooturis[k]['rootUri']
             #filepath = rootpath + '/' + item['file_name']
             filepath = k
-            print 'image:', l
+            #print 'image:', l
             if not os.path.exists(filepath):
                 print 'image not exits:', filepath
                 continue
@@ -128,6 +157,7 @@ def gen_data_from_json_simple_line(json_data, db_path):
                 if tm is None:
                     print 'image None:', filepath
                     continue
+                del tm
             except Exception,ex:
                 print 'image read error:', filepath, ' Exception: ', ex
                 continue
@@ -135,7 +165,10 @@ def gen_data_from_json_simple_line(json_data, db_path):
             label = item
             is_ok = True
 
-            w,h = PIL.Image.open(filepath).size
+            pl_tm = PIL.Image.open(filepath)
+            w,h = pl_tm.size
+            pl_tm.close()
+            del pl_tm
             for box in label:
                 if float(box['xmin']) > float(box['xmax']) \
                     or float(box['ymin']) > float(box['ymax']) \
@@ -149,13 +182,22 @@ def gen_data_from_json_simple_line(json_data, db_path):
     print 'total image:%d' % len(objs)
     cnt = 0
     arr = objs.items()
+
     random.shuffle(arr)
     db = lmdb.open(db_path, map_size=int(1e12))
     with db.begin(write=True) as in_txn:
+        #label_table = {}
     	for k,v in arr:
             key = '%8d' % cnt
-            in_txn.put(key, object2string(k, v))
+            #in_txn.put(key, object2string(k, v, label_table))
+            
+            in_txn.put(key, object2string(k, v, None))
             cnt += 1
+            if cnt % 1000 == 0:
+                print 'save:',cnt
+        #dict_file = open(dict_path, 'w')
+        #json.dump(label_table, dict_file)
+        #print label_table
     db.close()
     print 'finish:', db_path
 
@@ -166,11 +208,20 @@ def make_batch(config, util):
         os.makedirs(batches_dir)
     gen_data_from_json(config, batches_dir)
 
+def make_batch_from_file(filepath):
+    config = json.load(open(filepath, 'r'))
+    batches_dir = config['batches_dir']
+    if not os.path.exists(batches_dir):
+        os.makedirs(batches_dir)
+    gen_data_from_json(config, batches_dir)
+
+ 
+
 if __name__ == "__main__":
     #json_path = '/world/data-c6/dl-data/57328ea10c4ac91c23d95f72/57500cf408b3893435513c63/14648639883950.588590997736901.json'
-    json_path = '/home/kevin/tp_server/tpdetect/train_make_batch.json'
+    json_path = '/home/kevin/tp_server/tpdetect/train_rotate_batch.json'
     #json_path = '/world/data-c6/dl-data/57328ea10c4ac91c23d95f72/575f6689a3c08454158bd197/14658699625140.9822487544734031.json'
-    db_path = '/home/kevin/tp_server/tpdetect/char_exp_train_lmdb'
+    db_path = '/world/data-c5/ssd_test/rotate_char_exp_train_lmdb'
     json_data = json.load(open(json_path, 'r'))
-    gen_data_from_json_simple_line(json_data,db_path)
+    gen_data_from_json_simple_line(json_data,db_path, db_path + '/dict.json')
 

@@ -17,28 +17,29 @@ import subprocess
 import json
 json_data = json.load(open(sys.argv[1], 'r'))
 
+
 # Add extra layers on top of a "base" network (e.g. VGGNet or Inception).
-def AddExtraLayers(net, use_batchnorm=True):
+def AddExtraLayers(net, use_batchnorm=True,dim=128):
     use_relu = True
 
     # Add additional convolutional layers.
     from_layer = net.keys()[-1]
     # TODO(weiliu89): Construct the name using the last layer to avoid duplication.
     out_layer = "conv6_1"
-    ConvBNLayer(net, from_layer, out_layer, use_batchnorm, use_relu, 256, 1, 0, 1)
+    ConvBNLayer(net, from_layer, out_layer, use_batchnorm, use_relu, 2*dim, 1, 0, 1)
 
     from_layer = out_layer
     out_layer = "conv6_2"
-    ConvBNLayer(net, from_layer, out_layer, use_batchnorm, use_relu, 512, 3, 1, 2)
+    ConvBNLayer(net, from_layer, out_layer, use_batchnorm, use_relu, 4*dim, 3, 1, 2)
 
     for i in xrange(7, 9):
       from_layer = out_layer
       out_layer = "conv{}_1".format(i)
-      ConvBNLayer(net, from_layer, out_layer, use_batchnorm, use_relu, 128, 1, 0, 1)
+      ConvBNLayer(net, from_layer, out_layer, use_batchnorm, use_relu, dim, 1, 0, 1)
 
       from_layer = out_layer
       out_layer = "conv{}_2".format(i)
-      ConvBNLayer(net, from_layer, out_layer, use_batchnorm, use_relu, 256, 3, 1, 2)
+      ConvBNLayer(net, from_layer, out_layer, use_batchnorm, use_relu, 2*dim, 3, 1, 2)
 
     # Add global pooling layer.
     name = net.keys()[-1]
@@ -226,7 +227,10 @@ snapshot_prefix = "{}/{}".format(snapshot_dir, model_name)
 # Stores the test image names and sizes. Created by data/VOC0712/create_list.sh
 name_size_file = caffe_root + "/data/VOC0712/test_name_size.txt"
 # The pretrained model. We use the Fully convolutional reduced (atrous) VGGNet.
-pretrain_model = json_data['pretrain_model'] + '/VGG_ILSVRC_16_layers_fc_reduced.caffemodel'
+if json_data.get('snapshot') is not None:
+    pretrain_model = str(json_data['snapshot'])
+else:
+    pretrain_model = json_data['pretrain_model'] + '/VGG_ILSVRC_16_layers_fc_reduced.caffemodel'
 # Stores LabelMapItem.
 label_map_file = caffe_root + "/data/VOC0712/labelmap_voc.prototxt"
 
@@ -282,6 +286,14 @@ for ratio in xrange(min_ratio, max_ratio + 1, step):
 min_sizes = [min_dim * 10 / 100.] + min_sizes
 max_sizes = [[]] + max_sizes
 aspect_ratios = [[2], [2, 3], [2, 3], [2, 3], [2, 3], [2, 3]]
+if json_data.get('multibox') is False:
+    #aspect_ratios = [[], [], [], [], [], []]
+    aspect_ratios = [[], [], [], [], [], []]
+multihead_kernel_size = 3
+multihead_pad = 1
+if json_data.get('reduce') is True:
+    multihead_kernel_size = 1
+    multihead_pad = 0
 # L2 normalize conv4_3.
 normalizations = [20, -1, -1, -1, -1, -1]
 # variance used to encode/decode prior bboxes.
@@ -336,15 +348,15 @@ max_iter = json_data['iterator']
 
 solver_param = {
     # Train parameters
-    'base_lr': base_lr,
+    'base_lr': (base_lr)/2,
     'weight_decay': 0.0005,
     'lr_policy': "step",
-    'stepsize': 40000,
+    'stepsize': int(max_iter/2),
     'gamma': 0.1,
     'momentum': 0.9,
     'iter_size': iter_size,
     'max_iter': max_iter,
-    'snapshot': 10000,
+    'snapshot': (max_iter/10),
     'display': 10,
     'average_loss': 10,
     'type': "SGD",
@@ -413,7 +425,7 @@ mbox_layers = CreateMultiBoxHead(net, data_layer='data', from_layers=mbox_source
         use_batchnorm=use_batchnorm, min_sizes=min_sizes, max_sizes=max_sizes,
         aspect_ratios=aspect_ratios, normalizations=normalizations,
         num_classes=num_classes, share_location=share_location, flip=flip, clip=clip,
-        prior_variance=prior_variance, kernel_size=3, pad=1)
+        prior_variance=prior_variance, kernel_size=multihead_kernel_size, pad=multihead_pad)
 
 # Create the MultiBoxLossLayer.
 name = "mbox_loss"
@@ -441,7 +453,7 @@ mbox_layers = CreateMultiBoxHead(net, data_layer='data', from_layers=mbox_source
         use_batchnorm=use_batchnorm, min_sizes=min_sizes, max_sizes=max_sizes,
         aspect_ratios=aspect_ratios, normalizations=normalizations,
         num_classes=num_classes, share_location=share_location, flip=flip, clip=clip,
-        prior_variance=prior_variance, kernel_size=3, pad=1)
+        prior_variance=prior_variance, kernel_size=multihead_kernel_size, pad=multihead_pad)
 
 conf_name = "mbox_conf"
 if multibox_loss_param["conf_loss_type"] == P.MultiBoxLoss.SOFTMAX:
