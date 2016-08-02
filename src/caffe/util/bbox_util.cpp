@@ -479,10 +479,11 @@ void MatchBBox(const vector<NormalizedBBox>& gt_bboxes,
 template <typename Dtype>
 void GetGroundTruth(const Dtype* gt_data, const int num_gt,
       const int background_label_id, const bool use_difficult_gt,
-      map<int, vector<NormalizedBBox> >* all_gt_bboxes) {
+      map<int, vector<NormalizedBBox> >* all_gt_bboxes,bool has_angle) {
   all_gt_bboxes->clear();
+  int item_size = has_angle?9:8;
   for (int i = 0; i < num_gt; ++i) {
-    int start_idx = i * 8;
+    int start_idx = i * item_size;
     int item_id = gt_data[start_idx];
     if (item_id == -1) {
       break;
@@ -502,6 +503,7 @@ void GetGroundTruth(const Dtype* gt_data, const int num_gt,
     bbox.set_xmax(gt_data[start_idx + 5]);
     bbox.set_ymax(gt_data[start_idx + 6]);
     bbox.set_difficult(difficult);
+    if (has_angle) bbox.set_angle(gt_data[start_idx + 8]);
     float bbox_size = BBoxSize(bbox);
     bbox.set_size(bbox_size);
     (*all_gt_bboxes)[item_id].push_back(bbox);
@@ -511,10 +513,10 @@ void GetGroundTruth(const Dtype* gt_data, const int num_gt,
 // Explicit initialization.
 template void GetGroundTruth(const float* gt_data, const int num_gt,
       const int background_label_id, const bool use_difficult_gt,
-      map<int, vector<NormalizedBBox> >* all_gt_bboxes);
+      map<int, vector<NormalizedBBox> >* all_gt_bboxes, bool has_angle);
 template void GetGroundTruth(const double* gt_data, const int num_gt,
       const int background_label_id, const bool use_difficult_gt,
-      map<int, vector<NormalizedBBox> >* all_gt_bboxes);
+      map<int, vector<NormalizedBBox> >* all_gt_bboxes, bool has_angle);
 
 template <typename Dtype>
 void GetGroundTruth(const Dtype* gt_data, const int num_gt,

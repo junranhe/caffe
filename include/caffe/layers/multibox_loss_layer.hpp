@@ -90,6 +90,7 @@ class MultiBoxLossLayer : public LossLayer<Dtype> {
   bool map_object_to_agnostic_;
 
   int loc_classes_;
+  int loc_dim_;
   int num_gt_;
   int num_;
   int num_priors_;

@@ -18,7 +18,7 @@ import json
 #prototxt = '/world/data-c5/ssd_models/text_batch_64/deploy.prototxt'
 #caffemodel = '/world/data-c5/ssd_models/text_batch_64/VGG_SSD_300x300_iter_80000.caffemodel'
 prototxt = '/world/data-c5/ssd_test/rotate_char_output/deploy.prototxt'
-caffemodel = '/world/data-c5/ssd_test/rotate_char_output/VGG_SSD_300x300_iter_100000.caffemodel'
+caffemodel = '/world/data-c5/ssd_test/rotate_char_output/VGG_SSD_300x300_iter_70000.caffemodel'
 #dict_json = json.load(open('/world/data-c5/ssd_test/full_char_exp_train_lmdb/dict.json','r'))
 #label_dict = {v:k for k, v in dict_json.items()}
 #mean = np.array([104, 117, 123], np.uint8)

@@ -29,6 +29,7 @@ void MultiBoxLossLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
   CHECK_GE(num_classes_, 1) << "num_classes should not be less than 1.";
   share_location_ = multibox_loss_param.share_location();
   loc_classes_ = share_location_ ? 1 : num_classes_;
+  loc_dim_ = multibox_loss_param.has_angle() ? 5 : 4;
   match_type_ = multibox_loss_param.match_type();
   overlap_threshold_ = multibox_loss_param.overlap_threshold();
   use_prior_for_matching_ = multibox_loss_param.use_prior_for_matching();
@@ -157,7 +158,7 @@ void MultiBoxLossLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
   // Retrieve all ground truth.
   map<int, vector<NormalizedBBox> > all_gt_bboxes;
   GetGroundTruth(gt_data, num_gt_, background_label_id_, use_difficult_gt_,
-                 &all_gt_bboxes);
+                 &all_gt_bboxes, loc_dim_ == 5);
 
   // Retrieve all prior bboxes. It is same within a batch since we assume all
   // images in a batch are of same dimension.
@@ -309,6 +310,8 @@ void MultiBoxLossLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
           loc_pred_data[count * 4 + 1] = loc_pred[j].ymin();
           loc_pred_data[count * 4 + 2] = loc_pred[j].xmax();
           loc_pred_data[count * 4 + 3] = loc_pred[j].ymax();
+          //if (loc_dim_ == 5) loc_pred_data[count * 4 + 4] = 0;
+          //todo angle
           // Store encoded ground truth.
           const int gt_idx = match_index[j];
           CHECK(all_gt_bboxes.find(i) != all_gt_bboxes.end());
@@ -322,6 +325,8 @@ void MultiBoxLossLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
           loc_gt_data[count * 4 + 1] = gt_encode.ymin();
           loc_gt_data[count * 4 + 2] = gt_encode.xmax();
           loc_gt_data[count * 4 + 3] = gt_encode.ymax();
+          //if (loc_dim_ == 5) loc_gt_data[count * loc_dim_ + 4] = 0;
+          //todo angle
           if (encode_variance_in_target_) {
             for (int k = 0; k < 4; ++k) {
               CHECK_GT(prior_variances[j][k], 0);

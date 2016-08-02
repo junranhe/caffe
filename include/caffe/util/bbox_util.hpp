@@ -119,7 +119,7 @@ void MatchBBox(const vector<NormalizedBBox>& gt,
 template <typename Dtype>
 void GetGroundTruth(const Dtype* gt_data, const int num_gt,
       const int background_label_id, const bool use_difficult_gt,
-      map<int, vector<NormalizedBBox> >* all_gt_bboxes);
+      map<int, vector<NormalizedBBox> >* all_gt_bboxes, bool has_angle = false);
 // Store ground truth bboxes of same label in a group.
 template <typename Dtype>
 void GetGroundTruth(const Dtype* gt_data, const int num_gt,

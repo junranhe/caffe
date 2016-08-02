@@ -35,7 +35,7 @@ void AnnotatedDataLayer<Dtype>::DataLayerSetUp(
     batch_samplers_.push_back(anno_data_param.batch_sampler(i));
   }
   label_map_file_ = anno_data_param.label_map_file();
-
+  loc_dim_ = anno_data_param.has_angle() ? 5 : 4;
   // Read a data point, and use it to initialize the top blob.
   AnnotatedDatum& anno_datum = *(reader_.full().peek());
 
@@ -190,14 +190,15 @@ void AnnotatedDataLayer<Dtype>::load_batch(Batch<Dtype>* batch) {
   if (this->output_labels_ && has_anno_type_) {
     vector<int> label_shape(4);
     if (anno_type_ == AnnotatedDatum_AnnotationType_BBOX) {
+      int item_size = 4 + loc_dim_;
       label_shape[0] = 1;
       label_shape[1] = 1;
-      label_shape[3] = 8;
+      label_shape[3] = item_size;
       if (num_bboxes == 0) {
         // Store all -1 in the label.
         label_shape[2] = 1;
         batch->label_.Reshape(label_shape);
-        caffe_set<Dtype>(8, -1, batch->label_.mutable_cpu_data());
+        caffe_set<Dtype>(item_size, -1, batch->label_.mutable_cpu_data());
       } else {
         // Reshape the label and store the annotation.
         label_shape[2] = num_bboxes;
@@ -219,6 +220,8 @@ void AnnotatedDataLayer<Dtype>::load_batch(Batch<Dtype>* batch) {
               top_label[idx++] = bbox.xmax();
               top_label[idx++] = bbox.ymax();
               top_label[idx++] = bbox.difficult();
+              if (loc_dim_ == 5)
+                 top_label[idx++] = 0;
             }
           }
         }

@@ -154,7 +154,7 @@ def InceptionTower(net, from_layer, tower_name, layer_params):
 
 def CreateAnnotatedDataLayer(source, batch_size=32, backend=P.Data.LMDB,
         output_label=True, train=True, label_map_file='',
-        transform_param={}, batch_sampler=[{}]):
+        transform_param={}, batch_sampler=[{}], has_angle=False):
     if train:
         kwargs = {
                 'include': dict(phase=caffe_pb2.Phase.Value('TRAIN')),
@@ -168,7 +168,7 @@ def CreateAnnotatedDataLayer(source, batch_size=32, backend=P.Data.LMDB,
     if output_label:
         data, label = L.AnnotatedData(name="data",
             annotated_data_param=dict(label_map_file=label_map_file,
-                batch_sampler=batch_sampler),
+                batch_sampler=batch_sampler,has_angle=has_angle),
             data_param=dict(batch_size=batch_size, backend=backend, source=source),
             ntop=2, **kwargs)
         return [data, label]
@@ -582,7 +582,7 @@ def CreateMultiBoxHead(net, data_layer="data", num_classes=[], from_layers=[],
         use_objectness=False, normalizations=[], use_batchnorm=True,
         min_sizes=[], max_sizes=[], prior_variance = [0.1],
         aspect_ratios=[], share_location=True, flip=True, clip=True,
-        inter_layer_depth=0, kernel_size=1, pad=0, conf_postfix='', loc_postfix=''):
+        inter_layer_depth=0, kernel_size=1, pad=0, conf_postfix='', loc_postfix='',has_angle=False):
     assert num_classes, "must provide num_classes"
     assert num_classes > 0, "num_classes must be positive number"
     if normalizations:
@@ -631,7 +631,8 @@ def CreateMultiBoxHead(net, data_layer="data", num_classes=[], from_layers=[],
 
         # Create location prediction layer.
         name = "{}_mbox_loc{}".format(from_layer, loc_postfix)
-        num_loc_output = num_priors_per_location * 4;
+        loc_dim = 5 if has_angle else 4
+        num_loc_output = num_priors_per_location * loc_dim;
         if not share_location:
             num_loc_output *= num_classes
         ConvBNLayer(net, from_layer, name, use_bn=use_batchnorm, use_relu=False,

@@ -234,6 +234,7 @@ else:
 # Stores LabelMapItem.
 label_map_file = caffe_root + "/data/VOC0712/labelmap_voc.prototxt"
 
+has_angle = True
 # MultiBoxLoss parameters.
 num_classes = json_data['num_labels'] + 1
 share_location = True
@@ -258,6 +259,7 @@ multibox_loss_param = {
     'neg_pos_ratio': neg_pos_ratio,
     'neg_overlap': 0.5,
     'code_type': code_type,
+    'has_angle': has_angle,
     }
 loss_param = {
     'normalization': normalization_mode,
@@ -414,7 +416,7 @@ make_if_not_exist(snapshot_dir)
 net = caffe.NetSpec()
 net.data, net.label = CreateAnnotatedDataLayer(train_data, batch_size=batch_size_per_device,
         train=True, output_label=True, label_map_file=label_map_file,
-        transform_param=train_transform_param, batch_sampler=batch_sampler)
+        transform_param=train_transform_param, batch_sampler=batch_sampler, has_angle=has_angle)
 
 VGGNetBody(net, from_layer='data', fully_conv=True, reduced=True, dilated=True,
     dropout=False, freeze_layers=freeze_layers)
@@ -425,7 +427,7 @@ mbox_layers = CreateMultiBoxHead(net, data_layer='data', from_layers=mbox_source
         use_batchnorm=use_batchnorm, min_sizes=min_sizes, max_sizes=max_sizes,
         aspect_ratios=aspect_ratios, normalizations=normalizations,
         num_classes=num_classes, share_location=share_location, flip=flip, clip=clip,
-        prior_variance=prior_variance, kernel_size=multihead_kernel_size, pad=multihead_pad)
+        prior_variance=prior_variance, kernel_size=multihead_kernel_size, pad=multihead_pad, has_angle = False)
 
 # Create the MultiBoxLossLayer.
 name = "mbox_loss"
@@ -442,7 +444,7 @@ with open(train_net_file, 'w') as f:
 net = caffe.NetSpec()
 net.data, net.label = CreateAnnotatedDataLayer(train_data, batch_size=1,
         train=False, output_label=True, label_map_file=label_map_file,
-        transform_param=test_transform_param)
+        transform_param=test_transform_param, has_angle=has_angle)
 
 VGGNetBody(net, from_layer='data', fully_conv=True, reduced=True, dilated=True,
     dropout=False, freeze_layers=freeze_layers)
@@ -453,7 +455,8 @@ mbox_layers = CreateMultiBoxHead(net, data_layer='data', from_layers=mbox_source
         use_batchnorm=use_batchnorm, min_sizes=min_sizes, max_sizes=max_sizes,
         aspect_ratios=aspect_ratios, normalizations=normalizations,
         num_classes=num_classes, share_location=share_location, flip=flip, clip=clip,
-        prior_variance=prior_variance, kernel_size=multihead_kernel_size, pad=multihead_pad)
+        prior_variance=prior_variance, kernel_size=multihead_kernel_size, pad=multihead_pad,
+        has_angle=False)
 
 conf_name = "mbox_conf"
 if multibox_loss_param["conf_loss_type"] == P.MultiBoxLoss.SOFTMAX:
