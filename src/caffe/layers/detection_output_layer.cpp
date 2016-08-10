@@ -19,6 +19,7 @@ void DetectionOutputLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
       this->layer_param_.detection_output_param();
   CHECK(detection_output_param.has_num_classes()) << "Must specify num_classes";
   num_classes_ = detection_output_param.num_classes();
+  loc_dim_ = detection_output_param.has_angle()? 6:4;
   share_location_ = detection_output_param.share_location();
   num_loc_classes_ = share_location_ ? 1 : num_classes_;
   background_label_id_ = detection_output_param.background_label_id();
@@ -134,7 +135,7 @@ void DetectionOutputLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
   }
   CHECK_EQ(bottom[0]->num(), bottom[1]->num());
   num_priors_ = bottom[2]->height() / 4;
-  CHECK_EQ(num_priors_ * num_loc_classes_ * 4, bottom[0]->channels())
+  CHECK_EQ(num_priors_ * num_loc_classes_ * loc_dim_, bottom[0]->channels())
       << "Number of priors must match number of location predictions.";
   CHECK_EQ(num_priors_ * num_classes_, bottom[1]->channels())
       << "Number of priors must match number of confidence predictions.";
@@ -142,16 +143,19 @@ void DetectionOutputLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
   vector<int> top_shape(2, 1);
   // Since the number of bboxes to be kept is unknown before nms, we manually
   // set it to (fake) 1.
+  bool has_angle = (6 == loc_dim_);
+  int output_dim = (has_angle) ? 8 : 7; 
   top_shape.push_back(1);
   // Each row is a 7 dimension vector, which stores
   // [image_id, label, confidence, xmin, ymin, xmax, ymax]
-  top_shape.push_back(7);
+  top_shape.push_back(output_dim);
   top[0]->Reshape(top_shape);
 }
 
 template <typename Dtype>
 void DetectionOutputLayer<Dtype>::Forward_cpu(
     const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top) {
+  //exit(0);
   const Dtype* loc_data = bottom[0]->cpu_data();
   const Dtype* conf_data = bottom[1]->cpu_data();
   const Dtype* prior_data = bottom[2]->cpu_data();
@@ -160,7 +164,7 @@ void DetectionOutputLayer<Dtype>::Forward_cpu(
   // Retrieve all location predictions.
   vector<LabelBBox> all_loc_preds;
   GetLocPredictions(loc_data, num, num_priors_, num_loc_classes_,
-                    share_location_, &all_loc_preds);
+                    share_location_, &all_loc_preds, loc_dim_ == 6);
 
   // Retrieve all confidences.
   vector<map<int, vector<float> > > all_conf_scores;
@@ -255,10 +259,13 @@ void DetectionOutputLayer<Dtype>::Forward_cpu(
       num_kept += num_det;
     }
   }
+  bool has_angle = (6 == loc_dim_);
+  int output_dim = (has_angle) ? 8 : 7; 
 
+  printf("output dim:%d!!!!!!!!!!!!!!!!!!!\n", output_dim);
   vector<int> top_shape(2, 1);
   top_shape.push_back(num_kept);
-  top_shape.push_back(7);
+  top_shape.push_back(output_dim);
   top[0]->Reshape(top_shape);
   Dtype* top_data = top[0]->mutable_cpu_data();
 
@@ -299,15 +306,19 @@ void DetectionOutputLayer<Dtype>::Forward_cpu(
       }
       for (int j = 0; j < indices.size(); ++j) {
         int idx = indices[j];
-        top_data[count * 7] = i;
-        top_data[count * 7 + 1] = label;
-        top_data[count * 7 + 2] = conf_scores[label][idx];
+        top_data[count * output_dim] = i;
+        top_data[count * output_dim + 1] = label;
+        top_data[count * output_dim + 2] = conf_scores[label][idx];
         NormalizedBBox clip_bbox;
         ClipBBox(bboxes[idx], &clip_bbox);
-        top_data[count * 7 + 3] = clip_bbox.xmin();
-        top_data[count * 7 + 4] = clip_bbox.ymin();
-        top_data[count * 7 + 5] = clip_bbox.xmax();
-        top_data[count * 7 + 6] = clip_bbox.ymax();
+        top_data[count * output_dim + 3] = clip_bbox.xmin();
+        top_data[count * output_dim + 4] = clip_bbox.ymin();
+        top_data[count * output_dim + 5] = clip_bbox.xmax();
+        top_data[count * output_dim + 6] = clip_bbox.ymax();
+        if (has_angle) {
+          printf("get angle!!!!\n");
+          top_data[count * output_dim + 7] = clip_bbox.angle();
+        }
         if (need_save_) {
           NormalizedBBox scale_bbox;
           ScaleBBox(clip_bbox, sizes_[name_count_].first,

@@ -631,7 +631,7 @@ def CreateMultiBoxHead(net, data_layer="data", num_classes=[], from_layers=[],
 
         # Create location prediction layer.
         name = "{}_mbox_loc{}".format(from_layer, loc_postfix)
-        loc_dim = 5 if has_angle else 4
+        loc_dim = 6 if has_angle else 4
         num_loc_output = num_priors_per_location * loc_dim;
         if not share_location:
             num_loc_output *= num_classes

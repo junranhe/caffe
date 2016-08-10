@@ -138,7 +138,7 @@ void GetGroundTruth(const Dtype* gt_data, const int num_gt,
 template <typename Dtype>
 void GetLocPredictions(const Dtype* loc_data, const int num,
       const int num_preds_per_class, const int num_loc_classes,
-      const bool share_location, vector<LabelBBox>* loc_preds);
+      const bool share_location, vector<LabelBBox>* loc_preds, bool has_angle = false);
 
 // Get confidence predictions from conf_data.
 //    conf_data: num x num_preds_per_class * num_classes blob.
@@ -240,7 +240,7 @@ __host__ __device__ Dtype JaccardOverlapGPU(const Dtype* bbox1,
                                             const Dtype* bbox2);
 
 template <typename Dtype>
-void DecodeBBoxesGPU(const int nthreads,
+void DecodeBBoxesGPU(const int nthreads,const int loc_dim,
           const Dtype* loc_data, const Dtype* prior_data,
           const CodeType code_type, const bool variance_encoded_in_target,
           const int num_priors, const bool share_location,
@@ -253,22 +253,22 @@ void PermuteDataGPU(const int nthreads,
           const int num_dim, Dtype* new_data);
 
 template <typename Dtype>
-void ComputeOverlappedGPU(const int nthreads,
+void ComputeOverlappedGPU(const int nthreads,const int loc_dim,
           const Dtype* bbox_data, const int num_bboxes, const int num_classes,
           const Dtype overlap_threshold, bool* overlapped_data);
 
 template <typename Dtype>
-void ComputeOverlappedByIdxGPU(const int nthreads,
+void ComputeOverlappedByIdxGPU(const int nthreads,const int loc_dim,
           const Dtype* bbox_data, const Dtype overlap_threshold,
           const int* idx, const int num_idx, bool* overlapped_data);
 
 template <typename Dtype>
-void ApplyNMSGPU(const Dtype* bbox_data, const Dtype* conf_data,
+void ApplyNMSGPU(const int loc_dim, const Dtype* bbox_data, const Dtype* conf_data,
           const int num_bboxes, const float confidence_threshold,
           const int top_k, const float nms_threshold, vector<int>* indices);
 
 template <typename Dtype>
-void GetDetectionsGPU(const Dtype* bbox_data, const Dtype* conf_data,
+void GetDetectionsGPU(const int loc_dim, const Dtype* bbox_data, const Dtype* conf_data,
           const int image_id, const int label, const vector<int>& indices,
           const bool clip_bbox, Blob<Dtype>* detection_blob);
 #endif  // !CPU_ONLY

@@ -24,19 +24,24 @@ void DetectionOutputLayer<Dtype>::Forward_gpu(
   const int num = bottom[0]->num();
 
   // Decode predictions.
+  const bool has_angle = (loc_dim_ == 6);
+  const int output_dim = (has_angle)? 8: 7;
+  const int tm_loc_dim = loc_dim_;
   Blob<Dtype> bbox_preds;
   bbox_preds.ReshapeLike(*(bottom[0]));
   Dtype* bbox_data = bbox_preds.mutable_gpu_data();
   const int loc_count = bbox_preds.count();
-  DecodeBBoxesGPU<Dtype>(loc_count, loc_data, prior_data, code_type_,
+  DecodeBBoxesGPU<Dtype>(loc_count,tm_loc_dim, 
+      loc_data, prior_data, code_type_,
       variance_encoded_in_target_, num_priors_, share_location_,
       num_loc_classes_, background_label_id_, bbox_data);
   if (!share_location_) {
+    CHECK(false);
     Blob<Dtype> bbox_permute;
     bbox_permute.ReshapeLike(*(bottom[0]));
     Dtype* bbox_permute_data = bbox_permute.mutable_gpu_data();
     PermuteDataGPU<Dtype>(loc_count, bbox_data, num_loc_classes_, num_priors_,
-        4, bbox_permute_data);
+        tm_loc_dim, bbox_permute_data);
     caffe_copy(loc_count, bbox_permute_data, bbox_data);
   }
 
@@ -57,17 +62,18 @@ void DetectionOutputLayer<Dtype>::Forward_gpu(
     const int start_idx = i * num_classes_ * num_priors_;
     for (int c = 0; c < num_classes_; ++c) {
       if (c != background_label_id_) {
-        ApplyNMSGPU(bbox_data, conf_cpu_data + start_idx + c * num_priors_,
+        ApplyNMSGPU(tm_loc_dim, bbox_data, 
+            conf_cpu_data + start_idx + c * num_priors_,
             num_priors_, confidence_threshold_, top_k_, nms_threshold_,
             &(indices[c]));
         num_det += indices[c].size();
       }
       if (!share_location_) {
-        bbox_data += num_priors_ * 4;
+        bbox_data += num_priors_ * loc_dim_;
       }
     }
     if (share_location_) {
-      bbox_data += num_priors_ * 4;
+      bbox_data += num_priors_ * loc_dim_;
     }
     if (keep_top_k_ > -1 && num_det > keep_top_k_) {
       vector<pair<float, pair<int, int> > > score_index_pairs;
@@ -107,7 +113,7 @@ void DetectionOutputLayer<Dtype>::Forward_gpu(
   }
   vector<int> top_shape(2, 1);
   top_shape.push_back(num_kept);
-  top_shape.push_back(7);
+  top_shape.push_back(output_dim);
   top[0]->Reshape(top_shape);
   Dtype* top_data = top[0]->mutable_cpu_data();
   const Dtype* bbox_cpu_data = bbox_preds.cpu_data();
@@ -118,7 +124,7 @@ void DetectionOutputLayer<Dtype>::Forward_gpu(
     for (int c = 0; c < num_classes_; ++c) {
       if (all_indices[i].find(c) == all_indices[i].end()) {
         if (!share_location_) {
-          bbox_cpu_data += num_priors_ * 4;
+          bbox_cpu_data += num_priors_ * loc_dim_;
         }
         continue;
       }
@@ -126,39 +132,43 @@ void DetectionOutputLayer<Dtype>::Forward_gpu(
       // Retrieve detection data.
       bool clip_bbox = true;
       for (int j = 0; j < indices.size(); ++j) {
-        top_data[j * 7] = i;
-        top_data[j * 7 + 1] = c;
+        top_data[j * output_dim] = i;
+        top_data[j * output_dim + 1] = c;
         int idx = indices[j];
-        top_data[j * 7 + 2] = conf_cpu_data[start_idx + c * num_priors_ + idx];
+        top_data[j * output_dim + 2] = conf_cpu_data[start_idx + c * num_priors_ + idx];
         if (clip_bbox) {
           for (int k = 0; k < 4; ++k) {
-            top_data[j * 7 + 3 + k] = std::max(
-                std::min(bbox_cpu_data[idx * 4 + k], Dtype(1)), Dtype(0));
+            top_data[j * output_dim + 3 + k] = std::max(
+                std::min(bbox_cpu_data[idx * loc_dim_ + k], Dtype(1)), Dtype(0));
           }
         } else {
           for (int k = 0; k < 4; ++k) {
-            top_data[j * 7 + 3 + k] = bbox_cpu_data[idx * 4 + k];
+            top_data[j * output_dim + 3 + k] = bbox_cpu_data[idx * loc_dim_ + k];
           }
+        }
+        if (has_angle) {
+          top_data[j * output_dim + 7] = bbox_cpu_data[idx * loc_dim_ + 4];
         }
       }
       if (!share_location_) {
-        bbox_cpu_data += num_priors_ * 4;
+        bbox_cpu_data += num_priors_ * loc_dim_;
       }
       if (indices.size() == 0) {
         continue;
       }
       if (need_save_) {
+        CHECK(false);
         CHECK(label_to_name_.find(c) != label_to_name_.end())
             << "Cannot find label: " << c << " in the label map.";
         CHECK_LT(name_count_, names_.size());
         int height = sizes_[name_count_].first;
         int width = sizes_[name_count_].second;
         for (int j = 0; j < indices.size(); ++j) {
-          float score = top_data[j * 7 + 2];
-          float xmin = top_data[j * 7 + 3] * width;
-          float ymin = top_data[j * 7 + 4] * height;
-          float xmax = top_data[j * 7 + 5] * width;
-          float ymax = top_data[j * 7 + 6] * height;
+          float score = top_data[j * output_dim + 2];
+          float xmin = top_data[j * output_dim + 3] * width;
+          float ymin = top_data[j * output_dim + 4] * height;
+          float xmax = top_data[j * output_dim + 5] * width;
+          float ymax = top_data[j * output_dim + 6] * height;
           ptree pt_xmin, pt_ymin, pt_width, pt_height;
           pt_xmin.put<float>("", round(xmin * 100) / 100.);
           pt_ymin.put<float>("", round(ymin * 100) / 100.);
@@ -190,6 +200,7 @@ void DetectionOutputLayer<Dtype>::Forward_gpu(
       bbox_cpu_data += num_priors_ * 4;
     }
     if (need_save_) {
+      CHECK(false);
       ++name_count_;
       if (name_count_ % num_test_image_ == 0) {
         if (output_format_ == "VOC") {

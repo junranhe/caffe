@@ -10,7 +10,7 @@ import cv2
 import json
 import PIL
 import random
-
+import ssd_util
 def read_file_datum(filepath, datum):
     datum.encoded = True
     datum.label = -1
@@ -59,6 +59,7 @@ def object2string(filepath, obj, label_table=None):
             bbox.xmax = float(v[i]['xmax'])/w
             bbox.ymax = float(v[i]['ymax'])/h
             bbox.difficult = (int(v[i]['difficult']) <> 0)
+            bbox.angle = 10*float(ssd_util.degree2angle(v[i]['degree'], w, h))
     return an_datum.SerializeToString()
 
 def gen_data_from_json(json_data, db_path):
@@ -119,15 +120,15 @@ def gen_data_from_json(json_data, db_path):
 def gen_data_from_json_simple_line(json_data, db_path, dict_path):
     reload(sys)
     sys.setdefaultencoding('utf-8')
-    #label_path = json_data.get('fileListJSON')
-    #f = open(label_path, 'r')
-    f = open('/world/data-gpu-57/Tranning-data/frame_Text_rotate/export_full.json', 'r')
-    f1 = open('/world/data-gpu-57/Tranning-data/frame_Text4/export_full.json', 'r')
+    label_path = json_data.get('fileListJSON')
+    f = open(label_path, 'r')
+    #f = open('/world/data-gpu-57/Tranning-data/frame_Text_rotate/export_full.json', 'r')
+    #f1 = open('/world/data-gpu-57/Tranning-data/frame_Text4/export_full.json', 'r')
     lines = f.readlines()
-    lines1 = f1.readlines()
+    #lines1 = f1.readlines()
     #lines = lines[0: int(len(lines)/2)]
     #lines1 = lines1[0: int(len(lines1)/2)]
-    lines += lines1
+    #lines += lines1
     #data_set = json.load(f)
     #rooturis = json_data['rootUris']
     objs = {}
@@ -164,6 +165,28 @@ def gen_data_from_json_simple_line(json_data, db_path, dict_path):
 
             label = item
             is_ok = True
+            
+            #new_label = []
+            import ssd_util
+            for box in label:
+                xmin = float(box['xmin'])
+                ymin = float(box['ymin'])
+                xmax = float(box['xmax'])
+                ymax = float(box['ymax'])
+                degree = 0.
+                #print 'old: xmin:%f ymin:%f xmax:%f ymax:%f degree:%f' % (xmin, ymin, xmax, ymax, degree)
+                #continue
+                if 'degree' in box:
+                    degree = float(box['degree'])
+                    xmin, ymin, xmax, ymax =\
+                         ssd_util.compute_warp_rec(xmin, ymin, xmax, ymax, degree)
+                box['xmin'] = xmin
+                box['ymin'] = ymin
+                box['xmax'] = xmax
+                box['ymax'] = ymax
+                box['degree'] = degree 
+                #print 'new: xmin:%f ymin:%f xmax:%f ymax:%f degree:%f' % (xmin, ymin, xmax, ymax, degree)
+                #exit(0)
 
             pl_tm = PIL.Image.open(filepath)
             w,h = pl_tm.size
@@ -219,9 +242,9 @@ def make_batch_from_file(filepath):
 
 if __name__ == "__main__":
     #json_path = '/world/data-c6/dl-data/57328ea10c4ac91c23d95f72/57500cf408b3893435513c63/14648639883950.588590997736901.json'
-    json_path = '/home/kevin/tp_server/tpdetect/train_rotate_batch.json'
+    json_path = '/home/kevin/tp_server/tpdetect/train_angle_batch.json'
     #json_path = '/world/data-c6/dl-data/57328ea10c4ac91c23d95f72/575f6689a3c08454158bd197/14658699625140.9822487544734031.json'
-    db_path = '/world/data-c5/ssd_test/rotate_char_exp_train_lmdb'
+    db_path = '/world/data-c5/ssd_test/angle_train_lmdb_30w_x10'
     json_data = json.load(open(json_path, 'r'))
     gen_data_from_json_simple_line(json_data,db_path, db_path + '/dict.json')
 

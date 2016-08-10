@@ -29,7 +29,7 @@ void MultiBoxLossLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
   CHECK_GE(num_classes_, 1) << "num_classes should not be less than 1.";
   share_location_ = multibox_loss_param.share_location();
   loc_classes_ = share_location_ ? 1 : num_classes_;
-  loc_dim_ = multibox_loss_param.has_angle() ? 5 : 4;
+  loc_dim_ = multibox_loss_param.has_angle() ? 6 : 4;
   match_type_ = multibox_loss_param.match_type();
   overlap_threshold_ = multibox_loss_param.overlap_threshold();
   use_prior_for_matching_ = multibox_loss_param.use_prior_for_matching();
@@ -70,7 +70,7 @@ void MultiBoxLossLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
   loc_loss_type_ = multibox_loss_param.loc_loss_type();
   // fake shape.
   vector<int> loc_shape(1, 1);
-  loc_shape.push_back(4);
+  loc_shape.push_back(loc_dim_);
   loc_pred_.Reshape(loc_shape);
   loc_gt_.Reshape(loc_shape);
   loc_bottom_vec_.push_back(&loc_pred_);
@@ -141,7 +141,7 @@ void MultiBoxLossLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
   num_priors_ = bottom[2]->height() / 4;
   num_gt_ = bottom[3]->height();
   CHECK_EQ(bottom[0]->num(), bottom[1]->num());
-  CHECK_EQ(num_priors_ * loc_classes_ * 4, bottom[0]->channels())
+  CHECK_EQ(num_priors_ * loc_classes_ * loc_dim_, bottom[0]->channels())
       << "Number of priors must match number of location predictions.";
   CHECK_EQ(num_priors_ * num_classes_, bottom[1]->channels())
       << "Number of priors must match number of confidence predictions.";
@@ -158,7 +158,7 @@ void MultiBoxLossLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
   // Retrieve all ground truth.
   map<int, vector<NormalizedBBox> > all_gt_bboxes;
   GetGroundTruth(gt_data, num_gt_, background_label_id_, use_difficult_gt_,
-                 &all_gt_bboxes, loc_dim_ == 5);
+                 &all_gt_bboxes, loc_dim_ == 6);
 
   // Retrieve all prior bboxes. It is same within a batch since we assume all
   // images in a batch are of same dimension.
@@ -169,7 +169,7 @@ void MultiBoxLossLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
   // Retrieve all predictions.
   vector<LabelBBox> all_loc_preds;
   GetLocPredictions(loc_data, num_, num_priors_, loc_classes_, share_location_,
-                    &all_loc_preds);
+                    &all_loc_preds, loc_dim_ == 6);
 
   // Retrieve max scores for each prior. Used in negative mining.
   vector<vector<float> > all_max_scores;
@@ -195,6 +195,7 @@ void MultiBoxLossLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
     const vector<NormalizedBBox>& gt_bboxes = all_gt_bboxes.find(i)->second;
     map<int, vector<float> > match_overlaps;
     if (!use_prior_for_matching_) {
+      CHECK(false);
       for (int c = 0; c < loc_classes_; ++c) {
         int label = share_location_ ? -1 : c;
         if (!share_location_ && label == background_label_id_) {
@@ -287,7 +288,7 @@ void MultiBoxLossLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
     // Form data to pass on to loc_loss_layer_.
     vector<int> loc_shape(2);
     loc_shape[0] = 1;
-    loc_shape[1] = num_matches_ * 4;
+    loc_shape[1] = num_matches_ * loc_dim_;
     loc_pred_.Reshape(loc_shape);
     loc_gt_.Reshape(loc_shape);
     Dtype* loc_pred_data = loc_pred_.mutable_cpu_data();
@@ -306,11 +307,14 @@ void MultiBoxLossLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
           }
           // Store location prediction.
           CHECK_LT(j, loc_pred.size());
-          loc_pred_data[count * 4] = loc_pred[j].xmin();
-          loc_pred_data[count * 4 + 1] = loc_pred[j].ymin();
-          loc_pred_data[count * 4 + 2] = loc_pred[j].xmax();
-          loc_pred_data[count * 4 + 3] = loc_pred[j].ymax();
-          //if (loc_dim_ == 5) loc_pred_data[count * 4 + 4] = 0;
+          loc_pred_data[count * loc_dim_] = loc_pred[j].xmin();
+          loc_pred_data[count * loc_dim_ + 1] = loc_pred[j].ymin();
+          loc_pred_data[count * loc_dim_ + 2] = loc_pred[j].xmax();
+          loc_pred_data[count * loc_dim_ + 3] = loc_pred[j].ymax();
+          if (loc_dim_ == 6){ 
+            loc_pred_data[count * loc_dim_ + 4] = loc_pred[j].angle();
+            loc_pred_data[count * loc_dim_ + 5] = 0;
+          }
           //todo angle
           // Store encoded ground truth.
           const int gt_idx = match_index[j];
@@ -321,17 +325,21 @@ void MultiBoxLossLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
           CHECK_LT(j, prior_bboxes.size());
           EncodeBBox(prior_bboxes[j], prior_variances[j], code_type_,
                      encode_variance_in_target_, gt_bbox, &gt_encode);
-          loc_gt_data[count * 4] = gt_encode.xmin();
-          loc_gt_data[count * 4 + 1] = gt_encode.ymin();
-          loc_gt_data[count * 4 + 2] = gt_encode.xmax();
-          loc_gt_data[count * 4 + 3] = gt_encode.ymax();
-          //if (loc_dim_ == 5) loc_gt_data[count * loc_dim_ + 4] = 0;
+          loc_gt_data[count * loc_dim_] = gt_encode.xmin();
+          loc_gt_data[count * loc_dim_ + 1] = gt_encode.ymin();
+          loc_gt_data[count * loc_dim_ + 2] = gt_encode.xmax();
+          loc_gt_data[count * loc_dim_ + 3] = gt_encode.ymax();
+          if (loc_dim_ == 6) {
+            loc_gt_data[count * loc_dim_ + 4] = gt_encode.angle();
+            loc_gt_data[count * loc_dim_ + 5] = 0;
+          }
           //todo angle
           if (encode_variance_in_target_) {
+            CHECK(false);
             for (int k = 0; k < 4; ++k) {
               CHECK_GT(prior_variances[j][k], 0);
-              loc_pred_data[count * 4 + k] /= prior_variances[j][k];
-              loc_gt_data[count * 4 + k] /= prior_variances[j][k];
+              loc_pred_data[count * loc_dim_ + k] /= prior_variances[j][k];
+              loc_gt_data[count * loc_dim_ + k] /= prior_variances[j][k];
             }
           }
           ++count;
@@ -495,14 +503,15 @@ void MultiBoxLossLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
              all_match_indices_[i].begin();
              it != all_match_indices_[i].end(); ++it) {
           const int label = share_location_ ? 0 : it->first;
+          CHECK_EQ(label, 0);
           const vector<int>& match_index = it->second;
           for (int j = 0; j < match_index.size(); ++j) {
             if (match_index[j] == -1) {
               continue;
             }
             // Copy the diff to the right place.
-            int start_idx = loc_classes_ * 4 * j + label * 4;
-            caffe_copy<Dtype>(4, loc_pred_diff + count * 4,
+            int start_idx = loc_classes_ * loc_dim_ * j + label * loc_dim_;
+            caffe_copy<Dtype>(loc_dim_, loc_pred_diff + count * loc_dim_,
                               loc_bottom_diff + start_idx);
             ++count;
           }

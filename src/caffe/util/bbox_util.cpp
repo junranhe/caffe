@@ -203,6 +203,7 @@ void EncodeBBox(
     const CodeType code_type, const bool encode_variance_in_target,
     const NormalizedBBox& bbox, NormalizedBBox* encode_bbox) {
   if (code_type == PriorBoxParameter_CodeType_CORNER) {
+    CHECK(false);
     if (encode_variance_in_target) {
       encode_bbox->set_xmin(bbox.xmin() - prior_bbox.xmin());
       encode_bbox->set_ymin(bbox.ymin() - prior_bbox.ymin());
@@ -239,6 +240,7 @@ void EncodeBBox(
     float bbox_center_y = (bbox.ymin() + bbox.ymax()) / 2.;
 
     if (encode_variance_in_target) {
+      CHECK(false);
       encode_bbox->set_xmin((bbox_center_x - prior_center_x) / prior_width);
       encode_bbox->set_ymin((bbox_center_y - prior_center_y) / prior_height);
       encode_bbox->set_xmax(log(bbox_width / prior_width));
@@ -253,6 +255,7 @@ void EncodeBBox(
           log(bbox_width / prior_width) / prior_variance[2]);
       encode_bbox->set_ymax(
           log(bbox_height / prior_height) / prior_variance[3]);
+      encode_bbox->set_angle(bbox.angle());
     }
   } else {
     LOG(FATAL) << "Unknown LocLossType.";
@@ -264,6 +267,7 @@ void DecodeBBox(
     const CodeType code_type, const bool variance_encoded_in_target,
     const NormalizedBBox& bbox, NormalizedBBox* decode_bbox) {
   if (code_type == PriorBoxParameter_CodeType_CORNER) {
+    CHECK(false);
     if (variance_encoded_in_target) {
       // variance is encoded in target, we simply need to add the offset
       // predictions.
@@ -315,6 +319,7 @@ void DecodeBBox(
     decode_bbox->set_ymin(decode_bbox_center_y - decode_bbox_height / 2.);
     decode_bbox->set_xmax(decode_bbox_center_x + decode_bbox_width / 2.);
     decode_bbox->set_ymax(decode_bbox_center_y + decode_bbox_height / 2.);
+    decode_bbox->set_angle(bbox.angle());
   } else {
     LOG(FATAL) << "Unknown LocLossType.";
   }
@@ -481,7 +486,7 @@ void GetGroundTruth(const Dtype* gt_data, const int num_gt,
       const int background_label_id, const bool use_difficult_gt,
       map<int, vector<NormalizedBBox> >* all_gt_bboxes,bool has_angle) {
   all_gt_bboxes->clear();
-  int item_size = has_angle?9:8;
+  int item_size = has_angle?10:8;
   for (int i = 0; i < num_gt; ++i) {
     int start_idx = i * item_size;
     int item_id = gt_data[start_idx];
@@ -503,7 +508,12 @@ void GetGroundTruth(const Dtype* gt_data, const int num_gt,
     bbox.set_xmax(gt_data[start_idx + 5]);
     bbox.set_ymax(gt_data[start_idx + 6]);
     bbox.set_difficult(difficult);
-    if (has_angle) bbox.set_angle(gt_data[start_idx + 8]);
+    if (has_angle) 
+    {
+      bbox.set_angle(gt_data[start_idx + 8]);
+      //CHECK_EQ(gt_data[start_idx + 8], 0.);
+      //CHECK_EQ(gt_data[start_idx + 9] , 0.);
+    }
     float bbox_size = BBoxSize(bbox);
     bbox.set_size(bbox_size);
     (*all_gt_bboxes)[item_id].push_back(bbox);
@@ -560,26 +570,30 @@ template void GetGroundTruth(const double* gt_data, const int num_gt,
 template <typename Dtype>
 void GetLocPredictions(const Dtype* loc_data, const int num,
       const int num_preds_per_class, const int num_loc_classes,
-      const bool share_location, vector<LabelBBox>* loc_preds) {
+      const bool share_location, vector<LabelBBox>* loc_preds, bool has_angle) {
   loc_preds->clear();
   if (share_location) {
     CHECK_EQ(num_loc_classes, 1);
   }
+  int loc_dim = (has_angle) ? 6 : 4;
   for (int i = 0; i < num; ++i) {
     LabelBBox label_bbox;
     for (int p = 0; p < num_preds_per_class; ++p) {
-      int start_idx = p * num_loc_classes * 4;
+      int start_idx = p * num_loc_classes * loc_dim;
       for (int c = 0; c < num_loc_classes; ++c) {
         int label = share_location ? -1 : c;
         NormalizedBBox bbox;
-        bbox.set_xmin(loc_data[start_idx + c * 4]);
-        bbox.set_ymin(loc_data[start_idx + c * 4 + 1]);
-        bbox.set_xmax(loc_data[start_idx + c * 4 + 2]);
-        bbox.set_ymax(loc_data[start_idx + c * 4 + 3]);
+        bbox.set_xmin(loc_data[start_idx + c * loc_dim]);
+        bbox.set_ymin(loc_data[start_idx + c * loc_dim + 1]);
+        bbox.set_xmax(loc_data[start_idx + c * loc_dim + 2]);
+        bbox.set_ymax(loc_data[start_idx + c * loc_dim + 3]);
+        if (has_angle) { 
+          bbox.set_angle(loc_data[start_idx + c * loc_dim + 4]);
+        }
         label_bbox[label].push_back(bbox);
       }
     }
-    loc_data += num_preds_per_class * num_loc_classes * 4;
+    loc_data += num_preds_per_class * num_loc_classes * loc_dim;
     loc_preds->push_back(label_bbox);
   }
 }
@@ -587,10 +601,10 @@ void GetLocPredictions(const Dtype* loc_data, const int num,
 // Explicit initialization.
 template void GetLocPredictions(const float* loc_data, const int num,
       const int num_preds_per_class, const int num_loc_classes,
-      const bool share_location, vector<LabelBBox>* loc_preds);
+      const bool share_location, vector<LabelBBox>* loc_preds, bool has_angle);
 template void GetLocPredictions(const double* loc_data, const int num,
       const int num_preds_per_class, const int num_loc_classes,
-      const bool share_location, vector<LabelBBox>* loc_preds);
+      const bool share_location, vector<LabelBBox>* loc_preds, bool has_angle);
 
 template <typename Dtype>
 void GetConfidenceScores(const Dtype* conf_data, const int num,

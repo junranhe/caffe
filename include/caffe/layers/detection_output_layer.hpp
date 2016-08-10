@@ -100,7 +100,7 @@ class DetectionOutputLayer : public Layer<Dtype> {
   int name_count_;
 
   ptree detections_;
-
+  int loc_dim_;
   bool visualize_;
   float visualize_threshold_;
   shared_ptr<DataTransformer<Dtype> > data_transformer_;

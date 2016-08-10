@@ -35,7 +35,7 @@ void AnnotatedDataLayer<Dtype>::DataLayerSetUp(
     batch_samplers_.push_back(anno_data_param.batch_sampler(i));
   }
   label_map_file_ = anno_data_param.label_map_file();
-  loc_dim_ = anno_data_param.has_angle() ? 5 : 4;
+  loc_dim_ = anno_data_param.has_angle() ? 6 : 4;
   // Read a data point, and use it to initialize the top blob.
   AnnotatedDatum& anno_datum = *(reader_.full().peek());
 
@@ -56,6 +56,7 @@ void AnnotatedDataLayer<Dtype>::DataLayerSetUp(
   if (this->output_labels_) {
     has_anno_type_ = anno_datum.has_type();
     vector<int> label_shape(4, 1);
+    vector<int> top_label_shape(4, 1);
     if (has_anno_type_) {
       anno_type_ = anno_datum.type();
       // Infer the label shape from anno_datum.AnnotationGroup().
@@ -82,9 +83,14 @@ void AnnotatedDataLayer<Dtype>::DataLayerSetUp(
         LOG(FATAL) << "Unknown annotation type.";
       }
     } else {
+      //assert(false);
       label_shape[0] = batch_size;
     }
-    top[1]->Reshape(label_shape);
+    top_label_shape = label_shape;
+    if (anno_type_ == AnnotatedDatum_AnnotationType_BBOX) {
+      top_label_shape[3] = 4 + loc_dim_;
+    }
+    top[1]->Reshape(top_label_shape);
     for (int i = 0; i < this->PREFETCH_COUNT; ++i) {
       this->prefetch_[i].label_.Reshape(label_shape);
     }
@@ -171,6 +177,7 @@ void AnnotatedDataLayer<Dtype>::load_batch(Batch<Dtype>* batch) {
         }
         all_anno[item_id] = transformed_anno_vec;
       } else {
+        CHECK(false);
         this->data_transformer_->Transform(sampled_datum.datum(),
                                            &(this->transformed_data_));
         // Otherwise, store the label from datum.
@@ -220,8 +227,11 @@ void AnnotatedDataLayer<Dtype>::load_batch(Batch<Dtype>* batch) {
               top_label[idx++] = bbox.xmax();
               top_label[idx++] = bbox.ymax();
               top_label[idx++] = bbox.difficult();
-              if (loc_dim_ == 5)
-                 top_label[idx++] = 0;
+              if (loc_dim_ == 6) {
+                 CHECK_EQ(bbox.angle(), 0.);
+                 top_label[idx++] = bbox.angle();
+                 top_label[idx++] = 0.;
+              }
             }
           }
         }

@@ -17,8 +17,10 @@ import json
 #caffe.set_device(1)
 #prototxt = '/world/data-c5/ssd_models/text_batch_64/deploy.prototxt'
 #caffemodel = '/world/data-c5/ssd_models/text_batch_64/VGG_SSD_300x300_iter_80000.caffemodel'
-prototxt = '/world/data-c5/ssd_test/rotate_char_output/deploy.prototxt'
-caffemodel = '/world/data-c5/ssd_test/rotate_char_output/VGG_SSD_300x300_iter_70000.caffemodel'
+#prototxt = '/world/data-c5/ssd_models/text_batch_64/deploy.prototxt'
+#caffemodel = '/world/data-c5/ssd_models/text_batch_64/VGG_SSD_300x300_iter_80000.caffemodel'
+prototxt = '/world/data-c5/ssd_test/angle_char_output_2/deploy.prototxt'
+caffemodel = '/world/data-c5/ssd_test/angle_char_output_2/VGG_SSD_300x300_iter_28000.caffemodel'
 #dict_json = json.load(open('/world/data-c5/ssd_test/full_char_exp_train_lmdb/dict.json','r'))
 #label_dict = {v:k for k, v in dict_json.items()}
 #mean = np.array([104, 117, 123], np.uint8)
@@ -33,7 +35,7 @@ class TestHandler(tornado.web.RequestHandler):
         for f in self.request.files['file']:
             im = cv2.imdecode(np.asarray(bytearray(f['body']), dtype = np.uint8),\
                               cv2.IMREAD_COLOR)
-            image_data = net.detect_image_ex(im, None)
+            image_data = net.detect_image_ex(im, None, True)
 	    print 'ok'
             if image_data:
                 self.set_header('Content-Type', 'image/jpg')

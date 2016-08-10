@@ -6,6 +6,7 @@ import cv2
 import caffe
 import numpy as np
 import math
+import ssd_util
 def gpu_init(id):
     caffe.set_mode_gpu()
     caffe.set_device(id)
@@ -17,7 +18,7 @@ class SSDDetector(object):
         self.mean = np.array([104, 117, 123], np.uint8)
         self.net = caffe.Detector(prototxt, caffemodel,mean=self.mean)
 
-    def internal_detect(self, im):
+    def internal_detect(self, im, has_angle = False):
         h = im.shape[0]
     	w = im.shape[1]
     	r_im = cv2.resize(im, (300, 300))
@@ -26,6 +27,7 @@ class SSDDetector(object):
     	blob[0] = self.net.transformer.preprocess(in_, r_im)
     	forward_kwargs = {in_: blob}
     	blobs_out = self.net.forward(**forward_kwargs)
+        print self.net.outputs[0]
     	res = blobs_out[self.net.outputs[0]]
         dets = []
         clss = []
@@ -45,13 +47,19 @@ class SSDDetector(object):
                 continue
             if xmin >= xmax or ymin >= ymax:
                 continue
-            det = [xmin, ymin, xmax, ymax, score]
+            if has_angle:
+                angle = float((box[7]))
+                degree = ssd_util.angle2degree(angle, w, h)
+                print degree
+                det = [xmin, ymin, xmax,ymax,score, degree]
+            else:
+                det = [xmin, ymin, xmax, ymax, score]
             dets.append(det)
             clss.append(label)
         return clss,dets
 
-    def detect(self, im):
-        clss,dets = self.internal_detect(im)
+    def detect(self, im, has_angle = False):
+        clss,dets = self.internal_detect(im, has_angle)
         dets_table = {}
         for i in range(len(clss)):
             k = clss[i]
@@ -63,6 +71,7 @@ class SSDDetector(object):
             np_dets[k] = np.array(v, np.float32)
 	#print 'np_dets:', np_dets
         return np_dets
+    
     def draw_detection_result(self, im_data, class_name, dets, color=None):
         if color is None:
             color = (0,255,0)
@@ -71,7 +80,7 @@ class SSDDetector(object):
         #print 'draw restult:'
         for i in range(dets.shape[0]):
             bbox = dets[i, :4]
-            score = dets[i, -1]
+            score = dets[i, 4]
             #print chr(int(class_name))
             cv2.rectangle(im_data, (int(bbox[0]), int(bbox[1])),(int(bbox[2]), int(bbox[3])),\
                                   color, 1)
@@ -176,7 +185,7 @@ class SSDDetector(object):
             for i in range(len(dets)):
                 if i in used:
                     continue
-                score = dets[i][-1]
+                score = dets[i][4]
                 if score > max_score:
                     max_score = score
                     max_index = i
@@ -216,11 +225,24 @@ class SSDDetector(object):
             new_dets.append(dets[i])
         return new_clss, new_dets 
                 
-    def detect_image_ex(self, im_data, label_dict = None):
-        clss,dets = self.internal_detect(im_data)
-        print 'old:', len(dets)
-        clss,dets = self.nms(clss, dets, 0.6)
-        print 'nms:',len(dets)
+    def draw_rec(self, im_data, point, color, thickness = 1, degree = 0.0):
+        xmin, ymin, xmax, ymax = point
+        
+        #point_list = [(xmin, ymin), (xmax,ymin), (xmax, ymax), (xmin, ymax)]
+        #for i in range(len(point_list)):
+        #    nxt_idx = (i + 1) % len(point_list)
+        #    cv2.line(im_data, point_list[i], point_list[nxt_idx], color, thickness)
+        point_list2 = ssd_util.compute_sub_rotate_rec(xmin,ymin, xmax, ymax, degree)
+        point_list2 = [(int(x), int(y)) for x, y in point_list2]
+        for i in range(len(point_list2)):
+            nxt_idx = (i + 1) % len(point_list2)
+            cv2.line(im_data, point_list2[i], point_list2[nxt_idx], color, thickness)
+    def detect_image_ex(self, im_data, label_dict = None, has_angle = False):
+        clss,dets = self.internal_detect(im_data, has_angle)
+        #print 'dets:', dets
+        #print 'old:', len(dets)
+        #clss,dets = self.nms(clss, dets, 0.6)
+        #print 'nms:',len(dets)
         lines = self.ocr_group(dets)
         print lines
         font = cv2.FONT_HERSHEY_SIMPLEX
@@ -235,15 +257,19 @@ class SSDDetector(object):
                 else:
                     class_name = chr(int(clss[i]))
                 bbox = dets[i][ :4]
-                score = dets[i][-1]
-                cv2.rectangle(im_data, (int(bbox[0]), int(bbox[1])),(int(bbox[2]), int(bbox[3])),\
-                                  color, 2)
-                #cv2.putText(im_data, class_name, (int(bbox[0]), int(bbox[1])), font, 0.5, (0,0,255), 1)
+                degree = dets[i][5]
+                self.draw_rec(im_data,\
+                     (int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3])), color, 2, degree)
+                
+                #degree = ssd_util.angle2degree()
+                #cv2.rectangle(im_data, (int(bbox[0]), int(bbox[1])),(int(bbox[2]), int(bbox[3])),\
+                #                  color, 2)
+                #cv2.putText(im_data, str(angle), (int(bbox[0]), int(bbox[1])), font, 0.5, (0,0,255), 1)
         r, i = cv2.imencode('.jpg', im_data)
         return i.data
         
-    def detect_group(self, im_data):
-        clss,dets = self.internal_detect(im_data)
+    def detect_group(self, im_data, has_angle = False):
+        clss,dets = self.internal_detect(im_data, has_angle)
         clss,dets = self.nms(clss, dets, 0.9)
         lines = self.ocr_group(dets)
         font = cv2.FONT_HERSHEY_SIMPLEX

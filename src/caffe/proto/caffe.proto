@@ -126,7 +126,7 @@ message NormalizedBBox {
   optional bool difficult = 6;
   optional float score = 7;
   optional float size = 8;
-  optional float angle = 9;
+  optional float angle = 9 [default = 0];
 }
 
 // Annotation for each object instance.

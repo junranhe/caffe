@@ -17,6 +17,7 @@ import subprocess
 import json
 json_data = json.load(open(sys.argv[1], 'r'))
 
+has_angle = json_data.get('has_angle') == True
 
 # Add extra layers on top of a "base" network (e.g. VGGNet or Inception).
 def AddExtraLayers(net, use_batchnorm=True,dim=128):
@@ -234,7 +235,6 @@ else:
 # Stores LabelMapItem.
 label_map_file = caffe_root + "/data/VOC0712/labelmap_voc.prototxt"
 
-has_angle = True
 # MultiBoxLoss parameters.
 num_classes = json_data['num_labels'] + 1
 share_location = True
@@ -350,7 +350,7 @@ max_iter = json_data['iterator']
 
 solver_param = {
     # Train parameters
-    'base_lr': (base_lr)/2,
+    'base_lr': base_lr,
     'weight_decay': 0.0005,
     'lr_policy': "step",
     'stepsize': int(max_iter/2),
@@ -379,6 +379,7 @@ det_out_param = {
     'num_classes': num_classes,
     'share_location': share_location,
     'background_label_id': background_label_id,
+    'has_angle': has_angle,
     'nms_param': {'nms_threshold': 0.05, 'top_k': 400},
     #'save_output_param': {
     #    'output_directory': output_result_dir,
@@ -427,7 +428,7 @@ mbox_layers = CreateMultiBoxHead(net, data_layer='data', from_layers=mbox_source
         use_batchnorm=use_batchnorm, min_sizes=min_sizes, max_sizes=max_sizes,
         aspect_ratios=aspect_ratios, normalizations=normalizations,
         num_classes=num_classes, share_location=share_location, flip=flip, clip=clip,
-        prior_variance=prior_variance, kernel_size=multihead_kernel_size, pad=multihead_pad, has_angle = False)
+        prior_variance=prior_variance, kernel_size=multihead_kernel_size, pad=multihead_pad, has_angle = has_angle)
 
 # Create the MultiBoxLossLayer.
 name = "mbox_loss"
@@ -456,7 +457,7 @@ mbox_layers = CreateMultiBoxHead(net, data_layer='data', from_layers=mbox_source
         aspect_ratios=aspect_ratios, normalizations=normalizations,
         num_classes=num_classes, share_location=share_location, flip=flip, clip=clip,
         prior_variance=prior_variance, kernel_size=multihead_kernel_size, pad=multihead_pad,
-        has_angle=False)
+        has_angle=has_angle)
 
 conf_name = "mbox_conf"
 if multibox_loss_param["conf_loss_type"] == P.MultiBoxLoss.SOFTMAX:
