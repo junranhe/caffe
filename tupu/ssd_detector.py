@@ -91,7 +91,7 @@ class SSDDetector(object):
         l = dets.shape[0]
         used = {}
         res = []
-        k_array = [math.tan(math.radians(degree)) for degree in [0,4,8,12,16,20,176,172,168,164,160]]
+        k_array = [math.tan(math.radians(degree)) for degree in [0,4,8,12,16,20,24,28,32,36,176,172,168,164,160, 156,152,148, 144]]
         def compute_distance(k,x0,y0, x1, y1):
             b = y0 - (k*x0)
             d = abs(k*x1 - y1 + b)/math.sqrt(k*k + 1)
