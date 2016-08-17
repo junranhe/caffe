@@ -326,10 +326,22 @@ class SSDDetector(object):
         lines = self.ocr_group(dets)
         font = cv2.FONT_HERSHEY_SIMPLEX
         color = (random.randint(0,255), random.randint(0,255), random.randint(0,255))
-        im_rotate, boxes, _ = self.get_line_rotate_image_and_boxes(im_data, lines[0], dets)
-        for box in boxes:
+        im_rotate, boxes, rotate_boxes, _= self.get_line_rotate_image_and_boxes(im_data, lines[0], dets)
+        for index, box in enumerate(boxes):
             for k in range(len(box)):
                 cv2.line(im_rotate, box[k], box[(k+1)%len(box)], color, 1) 
+            xmin, ymin = box[0]
+            xmax, ymax = box[0]
+            for x, y in box:
+                xmin = min(x, xmin)
+                ymin = min(y, ymin)
+                xmax = max(x, xmax)
+                ymax = max(y, ymax)
+            print im_rotate.shape
+            print (xmin, ymin, xmax, ymax)
+            crop_mat = im_rotate[ymin:ymax, xmin:xmax]
+            cv2.imwrite('/home/kevin/tempjpg/' + str(index) + '.jpg', crop_mat)
+
         r, i = cv2.imencode('.jpg', im_rotate)
         return i.data
 
@@ -363,7 +375,7 @@ class SSDDetector(object):
                        ymin = min(y, ymin)
                        xmax = max(x, xmax)
                        ymax = max(y, ymax)
-                   crop_mat = im_rotate[xmin:xmax, ymin:ymax]
+                   crop_mat = im_rotate[ymin:ymax, xmin:xmax]
                    new_crop_mat.append(crop_mat)
         return new_clss, new_dets, new_groups, new_rotate_boxes, new_crop_mat, new_degree
      

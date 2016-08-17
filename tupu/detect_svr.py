@@ -35,7 +35,7 @@ class TestHandler(tornado.web.RequestHandler):
         for f in self.request.files['file']:
             im = cv2.imdecode(np.asarray(bytearray(f['body']), dtype = np.uint8),\
                               cv2.IMREAD_COLOR)
-            image_data = net.detect_image_ex(im, None, True)
+            image_data = net.detect_image_rotate(im, None, True)
 	    print 'ok'
             if image_data:
                 self.set_header('Content-Type', 'image/jpg')
