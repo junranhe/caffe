@@ -380,7 +380,7 @@ det_out_param = {
     'share_location': share_location,
     'background_label_id': background_label_id,
     'has_angle': has_angle,
-    'nms_param': {'nms_threshold': 0.05, 'top_k': 400},
+    'nms_param': {'nms_threshold': 0.3, 'top_k': 400},
     #'save_output_param': {
     #    'output_directory': output_result_dir,
     #    'output_name_prefix': "comp4_det_test_",
@@ -510,5 +510,5 @@ check_if_exist(solver_file)
 
 train_src_param = '--weights="{}" '.format(pretrain_model)
 solver_param = ' --solver="{}" '.format(solver_file)
-cmd = caffe_root + '/build/tools/caffe train ' + train_src_param + solver_param + ' --gpu ' + gpus
+cmd = caffe_root + '/build/tools/caffe train ' + train_src_param + solver_param + ' --gpu ' + gpus + ' --json={}'
 os.system(cmd)

@@ -7,6 +7,7 @@ import caffe
 import numpy as np
 import math
 import ssd_util
+import random
 def gpu_init(id):
     caffe.set_mode_gpu()
     caffe.set_device(id)
@@ -18,11 +19,11 @@ class SSDDetector(object):
         self.mean = np.array([104, 117, 123], np.uint8)
         self.net = caffe.Detector(prototxt, caffemodel,mean=self.mean)
 
-    def internal_detect(self, im, has_angle = False):
+    def internal_detect(self, im, has_angle = False, image_width=300, image_height=300):
         h = im.shape[0]
     	w = im.shape[1]
-    	r_im = cv2.resize(im, (300, 300))
-    	blob = np.zeros((1, 3, 300,300), np.float32)
+    	r_im = cv2.resize(im, (image_width, image_height))
+    	blob = np.zeros((1, 3, image_width, image_height), np.float32)
     	in_ = self.net.inputs[0]
     	blob[0] = self.net.transformer.preprocess(in_, r_im)
     	forward_kwargs = {in_: blob}
@@ -48,9 +49,8 @@ class SSDDetector(object):
             if xmin >= xmax or ymin >= ymax:
                 continue
             if has_angle:
-                angle = float((box[7]))
+                angle = float((box[7]))/10
                 degree = ssd_util.angle2degree(angle, w, h)
-                print degree
                 det = [xmin, ymin, xmax,ymax,score, degree]
             else:
                 det = [xmin, ymin, xmax, ymax, score]
@@ -227,7 +227,7 @@ class SSDDetector(object):
                 
     def draw_rec(self, im_data, point, color, thickness = 1, degree = 0.0):
         xmin, ymin, xmax, ymax = point
-        
+       
         #point_list = [(xmin, ymin), (xmax,ymin), (xmax, ymax), (xmin, ymax)]
         #for i in range(len(point_list)):
         #    nxt_idx = (i + 1) % len(point_list)
@@ -238,17 +238,28 @@ class SSDDetector(object):
             nxt_idx = (i + 1) % len(point_list2)
             cv2.line(im_data, point_list2[i], point_list2[nxt_idx], color, thickness)
     def detect_image_ex(self, im_data, label_dict = None, has_angle = False):
-        clss,dets = self.internal_detect(im_data, has_angle)
+        clss,dets = self.internal_detect(im_data, has_angle, 300, 300)
         #print 'dets:', dets
         #print 'old:', len(dets)
         #clss,dets = self.nms(clss, dets, 0.6)
-        #print 'nms:',len(dets)
+        #prit 'nms:',len(dets)
         lines = self.ocr_group(dets)
         print lines
         font = cv2.FONT_HERSHEY_SIMPLEX
         for l in lines:
             #print u'text:',u','.join([label_dict[int(clss[a])] for a in l])
-           
+            left_point = dets[l[0]] 
+            right_point = dets[l[-1]]
+            l_x = (left_point[0] + left_point[2])/2
+            l_y = (left_point[1] + left_point[3])/2
+            r_x = (right_point[0] + right_point[2])/2
+            r_y = (right_point[1] + right_point[3])/2
+            degree = 0.
+            if r_x > l_x:
+                angle = math.atan((r_y - l_y)/ (r_x - l_x))
+                degree = (angle * 180.0)/math.pi
+  
+            #print 'degree:',degree
             import random
             color = (random.randint(0,255), random.randint(0,255), random.randint(0,255))
             for i in l:
@@ -257,7 +268,7 @@ class SSDDetector(object):
                 else:
                     class_name = chr(int(clss[i]))
                 bbox = dets[i][ :4]
-                degree = dets[i][5]
+                #degree = dets[i][5]
                 self.draw_rec(im_data,\
                      (int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3])), color, 2, degree)
                 
@@ -267,8 +278,62 @@ class SSDDetector(object):
                 #cv2.putText(im_data, str(angle), (int(bbox[0]), int(bbox[1])), font, 0.5, (0,0,255), 1)
         r, i = cv2.imencode('.jpg', im_data)
         return i.data
-        
-    def detect_group(self, im_data, has_angle = False):
+    
+    def get_line_rotate_image_and_boxes(self,im_data,  l, dets):   
+        left_point = dets[l[0]] 
+        right_point = dets[l[-1]]
+        l_x = (left_point[0] + left_point[2])/2
+        l_y = (left_point[1] + left_point[3])/2
+        r_x = (right_point[0] + right_point[2])/2
+        r_y = (right_point[1] + right_point[3])/2
+        degree = 0.
+        if r_x > l_x:
+            angle = math.atan((r_y - l_y)/ (r_x - l_x))
+            degree = (angle * 180.0)/math.pi
+
+        boxes = [] 
+        rotate_boxes = []
+        # degree not handle large than 45
+        if degree >= 45.:
+            for i in l:
+                bbox = dets[i][:4]
+                xmin = int(bbox[0])
+                ymin = int(bbox[1])
+                xmax = int(bbox[2])
+                ymax = int(bbox[3])
+                one_box = [(xmin, ymin), (xmax, ymin), (xmax, ymax), (xmin, ymax)]
+                boxes.append(one_box)
+            return im_data, boxes, boxes, degree
+
+        x_c = (l_x + r_x)/2
+        y_c = (l_y + r_y)/2
+        rows,cols = im_data.shape[:2]
+        M = cv2.getRotationMatrix2D((x_c, y_c), degree,1)
+        im_rotate = cv2.warpAffine(im_data,M,(rows,cols))
+ 
+        for i in l:
+            bbox = dets[i][:4]
+            point_list = ssd_util.compute_sub_rotate_rec(float(bbox[0]), float(bbox[1]), float(bbox[2]), float(bbox[3]), degree)
+            rotate_list = [ssd_util.rotate_point(x, y, x_c, y_c, -1*degree) for x, y in point_list]
+            one_box = [(int(x), int(y)) for x, y in rotate_list]
+            sub_rotate_box = [(int(x), int(y)) for x, y in point_list]
+            boxes.append(one_box)
+            rotate_boxes.append(sub_rotate_box)
+        return im_rotate, boxes, rotate_boxes, degree
+
+    def detect_image_rotate(self, im_data, label_dict = None, has_angle = False):
+        clss,dets = self.internal_detect(im_data, has_angle)
+        lines = self.ocr_group(dets)
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        color = (random.randint(0,255), random.randint(0,255), random.randint(0,255))
+        im_rotate, boxes, _ = self.get_line_rotate_image_and_boxes(im_data, lines[0], dets)
+        for box in boxes:
+            for k in range(len(box)):
+                cv2.line(im_rotate, box[k], box[(k+1)%len(box)], color, 1) 
+        r, i = cv2.imencode('.jpg', im_rotate)
+        return i.data
+
+    def detect_group(self, im_data, has_angle = False, is_crop = False):
         clss,dets = self.internal_detect(im_data, has_angle)
         clss,dets = self.nms(clss, dets, 0.9)
         lines = self.ocr_group(dets)
@@ -276,14 +341,31 @@ class SSDDetector(object):
         new_clss = []
         new_dets = []
         new_groups = []
+        new_rotate_boxes = []
+        new_crop_mat = []
+        new_degree = []
         for group, l in enumerate(lines):
-            for i in l:
+            im_rotate, crop_boxes, rotate_boxes, degree = \
+                self.get_line_rotate_image_and_boxes(im_data, l, dets)
+            for index, i in enumerate(l):
                 bbox = dets[i][ :4]
-                score = dets[i][-1]
+                score = dets[i][4]
                 new_clss.append(clss[i])
                 new_dets.append(dets[i])
                 new_groups.append(group)
-        return new_clss, new_dets, new_groups
+                new_rotate_boxes.append(rotate_boxes[index])
+                new_degree.append(degree)
+                if is_crop:
+                   xmin , ymin= crop_boxes[index][0] 
+                   xmax , ymax = crop_boxes[index][0]
+                   for x, y in crop_boxes[index]:
+                       xmin = min(x, xmin)
+                       ymin = min(y, ymin)
+                       xmax = max(x, xmax)
+                       ymax = max(y, ymax)
+                   crop_mat = im_rotate[xmin:xmax, ymin:ymax]
+                   new_crop_mat.append(crop_mat)
+        return new_clss, new_dets, new_groups, new_rotate_boxes, new_crop_mat, new_degree
      
     def detect_image(self, im_data):
         class_res = self.detect(im_data)

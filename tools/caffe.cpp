@@ -47,6 +47,8 @@ DEFINE_string(sigint_effect, "stop",
 DEFINE_string(sighup_effect, "snapshot",
              "Optional; action to take when a SIGHUP signal is received: "
              "snapshot, stop or none.");
+DEFINE_string(json, "",
+    "json flag for get gpu info");
 
 // A simple registry for caffe commands.
 typedef int (*BrewFunction)();

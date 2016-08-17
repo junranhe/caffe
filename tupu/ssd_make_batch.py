@@ -90,7 +90,24 @@ def gen_data_from_json(json_data, db_path):
 
             label = item['label']
             is_ok = True
-
+            for box in label:
+                xmin = float(box['xmin'])
+                ymin = float(box['ymin'])
+                xmax = float(box['xmax'])
+                ymax = float(box['ymax'])
+                degree = 0.
+                #print 'old: xmin:%f ymin:%f xmax:%f ymax:%f degree:%f' % (xmin, ymin, xmax, ymax, degree)
+                #continue
+                if 'degree' in box:
+                    degree = float(box['degree'])
+                    xmin, ymin, xmax, ymax =\
+                         ssd_util.compute_warp_rec(xmin, ymin, xmax, ymax, degree)
+                box['xmin'] = xmin
+                box['ymin'] = ymin
+                box['xmax'] = xmax
+                box['ymax'] = ymax
+                box['degree'] = degree 
+             
             w,h = PIL.Image.open(filepath).size
             for box in label:
                 if float(box['xmin']) > float(box['xmax']) \
@@ -166,8 +183,6 @@ def gen_data_from_json_simple_line(json_data, db_path, dict_path):
             label = item
             is_ok = True
             
-            #new_label = []
-            import ssd_util
             for box in label:
                 xmin = float(box['xmin'])
                 ymin = float(box['ymin'])
@@ -244,7 +259,7 @@ if __name__ == "__main__":
     #json_path = '/world/data-c6/dl-data/57328ea10c4ac91c23d95f72/57500cf408b3893435513c63/14648639883950.588590997736901.json'
     json_path = '/home/kevin/tp_server/tpdetect/train_angle_batch.json'
     #json_path = '/world/data-c6/dl-data/57328ea10c4ac91c23d95f72/575f6689a3c08454158bd197/14658699625140.9822487544734031.json'
-    db_path = '/world/data-c5/ssd_test/angle_train_lmdb_30w_x10'
+    db_path = '/world/data-c5/ssd_test/angle_train_lmdb_x10_2'
     json_data = json.load(open(json_path, 'r'))
     gen_data_from_json_simple_line(json_data,db_path, db_path + '/dict.json')
 
