@@ -1,9 +1,8 @@
-# -*- coding: utf-8 -*- 
+# -*- coding: utf-8 -*-
 import matplotlib
 matplotlib.use('pdf')
-
-import sys
 import os
+import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../python'))
 #import caffe
 import cv2
@@ -29,7 +28,7 @@ caffemodel = '/world/data-c6/dl-data/57328ea10c4ac91c23d95f72/57b3e17dec5bbac937
 #net = caffe.Detector(prototxt, caffemodel,mean=mean)
 import ssd_detector
 
-ssd_detector.gpu_init(1)
+ssd_detector.gpu_init(6)
 net = ssd_detector.SSDDetector(caffemodel, prototxt, None)
 class TestHandler(tornado.web.RequestHandler):
     def post(self):
@@ -37,11 +36,11 @@ class TestHandler(tornado.web.RequestHandler):
         for f in self.request.files['file']:
             im = cv2.imdecode(np.asarray(bytearray(f['body']), dtype = np.uint8),\
                               cv2.IMREAD_COLOR)
-            image_data = net.detect_image_ex(im, None, False)
-	    print 'ok'
-            if image_data:
-                self.set_header('Content-Type', 'image/jpg')
-                self.write(bytes(image_data))
+            image_data = net.detect_group(im, None, False, True)
+	        #print 'ok'
+            #if image_data:
+            #    self.set_header('Content-Type', 'image/jpg')
+            #    self.write(bytes(image_data))
 
 class MainHandler(tornado.web.RequestHandler):
     def get(self):
