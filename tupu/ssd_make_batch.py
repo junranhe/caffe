@@ -24,7 +24,7 @@ def read_file_datum(filepath, datum):
     return h, w
 
 def is_number(uchar):
-    return uchar >= u'\u0030' and uchar <=u'\u0039' 
+    return uchar >= u'\u0030' and uchar <=u'\u0039'
 def is_char(uchar):
     return (uchar >= u'\u0041' and uchar<=u'\u005a') or (uchar >= u'\u0061' and uchar<=u'\u007a')
 
@@ -67,58 +67,61 @@ def gen_data_from_json(json_data, db_path):
     sys.setdefaultencoding('utf-8')
     label_path = json_data.get('fileListJSON')
     f = open(label_path, 'r')
-    data_set = json.load(f)
-    rooturis = json_data['rootUris']
+    uriIds = json_data['uriIds']
     objs = {}
-    for k, v in data_set.items():
-        for item in v:
-            if len(item) == 0:
+    for l in f:
+        is_uriId = l[0:-1]
+        if is_uriId in uriIds:
+            continue
+        item = l.split('\t')
+        filepath = item[0]
+        if not os.path.exists(filepath):
+            print 'image not exits:', filepath
+            continue
+        try:
+            tm = cv2.imread(filepath)
+            if tm is None:
+                print 'image None:', filepath
                 continue
-            rootpath = rooturis[k]['rootUri']
-            filepath = rootpath + '/' + item['file_name']
-            if not os.path.exists(filepath):
-                print 'image not exits:', filepath
-                continue
-            try:
-                tm = cv2.imread(filepath)
-                if tm is None:
-                    print 'image None:', filepath
-                    continue
-            except Exception,ex:
-                print 'image read error:', filepath, ' Exception: ', ex
-                continue
+        except Exception,ex:
+            print 'image read error:', filepath, ' Exception: ', ex
+            continue
 
-            label = item['label']
-            is_ok = True
-            for box in label:
-                xmin = float(box['xmin'])
-                ymin = float(box['ymin'])
-                xmax = float(box['xmax'])
-                ymax = float(box['ymax'])
-                degree = 0.
-                #print 'old: xmin:%f ymin:%f xmax:%f ymax:%f degree:%f' % (xmin, ymin, xmax, ymax, degree)
-                #continue
-                if 'degree' in box:
-                    degree = float(box['degree'])
-                    xmin, ymin, xmax, ymax =\
-                         ssd_util.compute_warp_rec(xmin, ymin, xmax, ymax, degree)
-                box['xmin'] = xmin
-                box['ymin'] = ymin
-                box['xmax'] = xmax
-                box['ymax'] = ymax
-                box['degree'] = degree 
-             
-            w,h = PIL.Image.open(filepath).size
-            for box in label:
-                if float(box['xmin']) > float(box['xmax']) \
-                    or float(box['ymin']) > float(box['ymax']) \
-                    or float(box['xmin']) < 1 or float(box['ymin']) < 1 \
-                    or float(box['xmax']) >= w or float(box['ymax']) >= h:
-                    print 'label error:', filepath
-                    is_ok = False
-                    break
-            if is_ok:
-                objs[filepath] = label
+        try:
+            label = json.loads(item[1])
+        except Exception,ex:
+            print 'error line:', l
+            continue
+        is_ok = True
+        for box in label:
+            xmin = float(box['xmin'])
+            ymin = float(box['ymin'])
+            xmax = float(box['xmax'])
+            ymax = float(box['ymax'])
+            degree = 0.
+            #print 'old: xmin:%f ymin:%f xmax:%f ymax:%f degree:%f' % (xmin, ymin, xmax, ymax, degree)
+            #continue
+            if 'degree' in box:
+                degree = float(box['degree'])
+                xmin, ymin, xmax, ymax =\
+                     ssd_util.compute_warp_rec(xmin, ymin, xmax, ymax, degree)
+            box['xmin'] = xmin
+            box['ymin'] = ymin
+            box['xmax'] = xmax
+            box['ymax'] = ymax
+            box['degree'] = degree
+
+        w,h = PIL.Image.open(filepath).size
+        for box in label:
+            if float(box['xmin']) > float(box['xmax']) \
+                or float(box['ymin']) > float(box['ymax']) \
+                or float(box['xmin']) < 1 or float(box['ymin']) < 1 \
+                or float(box['xmax']) >= w or float(box['ymax']) >= h:
+                print 'label error:', filepath
+                is_ok = False
+                break
+        if is_ok:
+            objs[filepath] = label
     print 'A total of %d images' % len(objs)
     cnt = 0
     arr = objs.items()
@@ -182,7 +185,7 @@ def gen_data_from_json_simple_line(json_data, db_path, dict_path):
 
             label = item
             is_ok = True
-            
+
             for box in label:
                 xmin = float(box['xmin'])
                 ymin = float(box['ymin'])
@@ -199,7 +202,7 @@ def gen_data_from_json_simple_line(json_data, db_path, dict_path):
                 box['ymin'] = ymin
                 box['xmax'] = xmax
                 box['ymax'] = ymax
-                box['degree'] = degree 
+                box['degree'] = degree
                 #print 'new: xmin:%f ymin:%f xmax:%f ymax:%f degree:%f' % (xmin, ymin, xmax, ymax, degree)
                 #exit(0)
 
@@ -228,7 +231,7 @@ def gen_data_from_json_simple_line(json_data, db_path, dict_path):
     	for k,v in arr:
             key = '%8d' % cnt
             #in_txn.put(key, object2string(k, v, label_table))
-            
+
             in_txn.put(key, object2string(k, v, None))
             cnt += 1
             if cnt % 1000 == 0:
@@ -253,13 +256,14 @@ def make_batch_from_file(filepath):
         os.makedirs(batches_dir)
     gen_data_from_json(config, batches_dir)
 
- 
+
 
 if __name__ == "__main__":
-    #json_path = '/world/data-c6/dl-data/57328ea10c4ac91c23d95f72/57500cf408b3893435513c63/14648639883950.588590997736901.json'
-    json_path = '/home/kevin/tp_server/tpdetect/train_angle_batch.json'
-    #json_path = '/world/data-c6/dl-data/57328ea10c4ac91c23d95f72/575f6689a3c08454158bd197/14658699625140.9822487544734031.json'
-    db_path = '/world/data-c5/ssd_test/angle_train_lmdb_x10_2'
+    #json_path = '/home/kevin/tp_server/tpdetect/train_angle_batch.json'
+    #db_path = '/world/data-c5/ssd_test/angle_train_lmdb_x10_2'
+
+    json_path = '/world/data-c6/dl-data/57328ea10c4ac91c23d95f72/57b6840264eb0db6507fdb5d/14715791387660.8223382802680135.json'
+    db_path = '~/temp_debug'
     json_data = json.load(open(json_path, 'r'))
-    gen_data_from_json_simple_line(json_data,db_path, db_path + '/dict.json')
+    gen_data_from_json(json_data,json_data['batches_dir'])
 
