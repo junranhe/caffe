@@ -1,0 +1,73 @@
+<!DOCTYPE html> 
+<html> 
+<head> 
+<meta charset="utf-8" /> 
+<title>图片插入</title> 
+</head> 
+
+<body> 
+    <form action={{search}} enctype="multipart/form-data" method='post'>
+	<input type="file" name='file' id="fileElem" multiple accept="image/*" onchange="handleFiles(this)" onclick="refresh(this)"><br/>
+	<input id ="name" type="hidden" name="writelog" value={{writelog}}></input>
+	<input id ="name" type="hidden" name="returnupimg" value={{returnupimg}}></input>
+	<input type='submit' value='submit'/>
+	<div id="fileList" style="width:1000px;height:1000px;"></div>
+	</form>
+
+	<script>
+		window.URL = window.URL || window.webkitURL;
+		var fileElem = document.getElementById("fileElem"),
+		    fileList = document.getElementById("fileList");
+		function handleFiles(obj) {
+			var files = obj.files;
+			for (var i = 0, file; file = files[i]; i++)
+			{
+				
+				var img = new Image();
+				if(window.URL){
+					//File API
+					  //alert("111")
+					  //alert(file.name + "," + file.size + " bytes");
+				      img.src = window.URL.createObjectURL(file); //创建一个object URL，并不是你的本地路径
+				      img.width = 100;
+				      img.height = 100;
+				      img.onload = function(e) {
+				         window.URL.revokeObjectURL(this.src); //图片加载后，释放object URL
+				      }
+				      fileList.appendChild(img);
+			}else if(window.FileReader){
+				//alert("222")
+				//opera不支持createObjectURL/revokeObjectURL方法。我们用FileReader对象来处理
+				var reader = new FileReader();
+				reader.readAsDataURL(file);
+				reader.onload = function(e){
+					alert(file.name + "," +e.total + " bytes");
+					img.src = this.result;
+					img.width = 100;
+					fileList.appendChild(img);
+				}
+			}else{
+				//alert("333")
+				//ie
+				obj.select();
+				obj.blur();
+				var nfile = document.selection.createRange().text;
+				document.selection.empty();
+				img.src = nfile;
+				img.width = 100;
+				img.onload=function(){
+			      alert(nfile+","+img.fileSize + " bytes");
+			    }
+				fileList.appendChild(img);
+				//fileList.style.filter="progid:DXImageTransform.Microsoft.AlphaImageLoader(sizingMethod='image',src='"+nfile+"')";
+			}
+		  }
+		}
+
+		function refresh(obj)
+		{
+			// alert("77777");
+		}
+	</script>
+</body> 
+</html>
