@@ -17,11 +17,7 @@ import subprocess
 import json
 json_data = json.load(open(sys.argv[1], 'r'))
 
-<<<<<<< HEAD
 has_angle = True #json_data.get('has_angle') == True
-=======
-has_angle = True
->>>>>>> 8bb208caed563088837b574ec2195230568c1781
 
 # Add extra layers on top of a "base" network (e.g. VGGNet or Inception).
 def AddExtraLayers(net, use_batchnorm=True,dim=128):
