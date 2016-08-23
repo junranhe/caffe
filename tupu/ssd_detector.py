@@ -337,10 +337,10 @@ class SSDDetector(object):
                 ymin = min(y, ymin)
                 xmax = max(x, xmax)
                 ymax = max(y, ymax)
-            print im_rotate.shape
-            print (xmin, ymin, xmax, ymax)
+            #print im_rotate.shape
+            #print (xmin, ymin, xmax, ymax)
             crop_mat = im_rotate[ymin:ymax, xmin:xmax]
-            cv2.imwrite('/home/zhangjiguo/tempjpg/' + str(index) + '.jpg', crop_mat)
+            #cv2.imwrite('/home/zhangjiguo/test_debug/' + str(index) + '.jpg', crop_mat)
 
         r, i = cv2.imencode('.jpg', im_rotate)
         return i.data
@@ -376,9 +376,10 @@ class SSDDetector(object):
                        xmax = max(x, xmax)
                        ymax = max(y, ymax)
                    crop_mat = im_rotate[ymin:ymax, xmin:xmax]
-                   print 'shape:',im_rotate.shape
-                   print 'box:',(xmin, ymin, xmax, ymax)
-                   cv2.imwrite('/home/zhangjiguo/test_debug/' +str(index) + '.jpg', crop_mat)
+                   #print 'shape:',im_rotate.shape
+                   #print 'box:',(xmin, ymin, xmax, ymax)
+                   #print 'write'
+                   #cv2.imwrite('/home/zhangjiguo/test_debug/' +str(index) + '.jpg', crop_mat)
                    new_crop_mat.append(crop_mat)
         return new_clss, new_dets, new_groups, new_rotate_boxes, new_crop_mat, new_degree
 
