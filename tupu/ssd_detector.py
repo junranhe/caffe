@@ -18,17 +18,21 @@ class SSDDetector(object):
         self.prototxt = prototxt
         self.mean = np.array([104, 117, 123], np.uint8)
         self.net = caffe.Detector(prototxt, caffemodel,mean=self.mean)
-
-    def internal_detect(self, im, has_angle = False, image_width=300, image_height=300):
+        
+    def internal_detect(self, im, has_angle = False):
         h = im.shape[0]
         w = im.shape[1]
+        
+        in_ = self.net.inputs[0]
+        input_shape = self.net.blobs[in_].shape
+        image_height = input_shape[2]
+        image_width = input_shape[3]
         r_im = cv2.resize(im, (image_width, image_height))
         blob = np.zeros((1, 3, image_width, image_height), np.float32)
-        in_ = self.net.inputs[0]
         blob[0] = self.net.transformer.preprocess(in_, r_im)
         forward_kwargs = {in_: blob}
         blobs_out = self.net.forward(**forward_kwargs)
-        print self.net.outputs[0]
+        #print self.net.outputs[0]
         res = blobs_out[self.net.outputs[0]]
         dets = []
         clss = []
@@ -49,7 +53,7 @@ class SSDDetector(object):
             if xmin >= xmax or ymin >= ymax:
                 continue
             if has_angle:
-                angle = float((box[7]))/10
+                angle = float((box[7]))
                 degree = ssd_util.angle2degree(angle, w, h)
                 det = [xmin, ymin, xmax,ymax,score, degree]
             else:
@@ -238,7 +242,7 @@ class SSDDetector(object):
             nxt_idx = (i + 1) % len(point_list2)
             cv2.line(im_data, point_list2[i], point_list2[nxt_idx], color, thickness)
     def detect_image_ex(self, im_data, label_dict = None, has_angle = False):
-        clss,dets = self.internal_detect(im_data, has_angle, 300, 300)
+        clss,dets = self.internal_detect(im_data, has_angle)
         #print 'dets:', dets
         #print 'old:', len(dets)
         #clss,dets = self.nms(clss, dets, 0.6)
@@ -254,10 +258,10 @@ class SSDDetector(object):
             l_y = (left_point[1] + left_point[3])/2
             r_x = (right_point[0] + right_point[2])/2
             r_y = (right_point[1] + right_point[3])/2
-            degree = 0.
-            if r_x > l_x:
-                angle = math.atan((r_y - l_y)/ (r_x - l_x))
-                degree = (angle * 180.0)/math.pi
+            #degree = 0.
+            #if r_x > l_x:
+                #angle = math.atan((r_y - l_y)/ (r_x - l_x))
+                #degree = (angle * 180.0)/math.pi
 
             #print 'degree:',degree
             import random
@@ -268,7 +272,8 @@ class SSDDetector(object):
                 else:
                     class_name = chr(int(clss[i]))
                 bbox = dets[i][ :4]
-                #degree = dets[i][5]
+                degree = dets[i][5]
+                #print 'get degree'
                 self.draw_rec(im_data,\
                      (int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3])), color, 2, degree)
 

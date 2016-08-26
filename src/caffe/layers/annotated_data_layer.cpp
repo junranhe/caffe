@@ -228,7 +228,7 @@ void AnnotatedDataLayer<Dtype>::load_batch(Batch<Dtype>* batch) {
               top_label[idx++] = bbox.ymax();
               top_label[idx++] = bbox.difficult();
               if (loc_dim_ == 6) {
-                 CHECK_EQ(bbox.angle(), 0.);
+                 //CHECK_EQ(bbox.angle(), 0.);
                  top_label[idx++] = bbox.angle();
                  top_label[idx++] = 0.;
               }

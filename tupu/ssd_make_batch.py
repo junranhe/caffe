@@ -59,7 +59,7 @@ def object2string(filepath, obj, label_table=None):
             bbox.xmax = float(v[i]['xmax'])/w
             bbox.ymax = float(v[i]['ymax'])/h
             bbox.difficult = (int(v[i]['difficult']) <> 0)
-            bbox.angle = 10*float(ssd_util.degree2angle(v[i]['degree'], w, h))
+            bbox.angle = float(ssd_util.degree2angle(v[i]['degree'], w, h))
     return an_datum.SerializeToString()
 
 def gen_data_from_json(json_data, db_path):

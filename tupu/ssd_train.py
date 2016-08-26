@@ -70,8 +70,8 @@ def AddExtraLayers(net, use_batchnorm=True,dim=128):
 #test_data = "tupu/test_lmdb"
 # Specify the batch sampler.
 train_data = json_data['batches_dir']
-resize_width = 500
-resize_height = 500
+resize_width = 300
+resize_height = 300
 resize = "{}x{}".format(resize_width, resize_height)
 batch_sampler = [
         {
@@ -350,7 +350,7 @@ max_iter = json_data['iterator']
 
 solver_param = {
     # Train parameters
-    'base_lr': base_lr/2,
+    'base_lr': base_lr,
     'weight_decay': 0.0005,
     'lr_policy': "step",
     'stepsize': int(max_iter/2),

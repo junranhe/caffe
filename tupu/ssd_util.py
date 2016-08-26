@@ -42,6 +42,14 @@ def degree2angle(degree, width, height):
     l = math.sqrt(w_new*w_new + h_new*h_new)
     return math.asin(h_new/l)
 
+def project_angle(r, width, height):
+    w = math.cos(r)
+    h = math.sin(r)
+    w_new = w/width
+    h_new = h/height
+    l = math.sqrt(w_new*w_new + h_new*h_new)
+    return math.asin(h_new/l)
+
 def angle2degree(angle, width, height):
     #s = math.asin(angle)
     x = math.tan(angle)

@@ -3,7 +3,7 @@
 #include <string>
 #include <utility>
 #include <vector>
-
+#include <cmath>
 #include "boost/iterator/counting_iterator.hpp"
 
 #include "caffe/3rdparty/hungarian.h"
@@ -50,6 +50,15 @@ NormalizedBBox UnitBBox() {
   unit_bbox.set_xmax(1.);
   unit_bbox.set_ymax(1.);
   return unit_bbox;
+}
+
+float ProjectAngle(float angle, float width,float height) {
+    float w = cos(angle);
+    float h = sin(angle);
+    float w_new = w/width;
+    float h_new = h/height;
+    float l = sqrt(w_new*w_new + h_new*h_new);
+    return asin(h_new/l);
 }
 
 void IntersectBBox(const NormalizedBBox& bbox1, const NormalizedBBox& bbox2,
@@ -134,6 +143,8 @@ bool ProjectBBox(const NormalizedBBox& src_bbox, const NormalizedBBox& bbox,
   proj_bbox->set_xmax((bbox.xmax() - src_bbox.xmin()) / src_width);
   proj_bbox->set_ymax((bbox.ymax() - src_bbox.ymin()) / src_height);
   proj_bbox->set_difficult(bbox.difficult());
+  proj_bbox->set_angle(ProjectAngle(bbox.angle(), src_width, src_height));
+  //CHECK_EQ(bbox.angle(), 0.);
   ClipBBox(*proj_bbox, proj_bbox);
   if (BBoxSize(*proj_bbox) > 0) {
     return true;
