@@ -18,6 +18,7 @@ import json
 json_data = json.load(open(sys.argv[1], 'r'))
 
 has_angle = True #json_data.get('has_angle') == True
+is_small_object = json_data.get('small_object') == True
 
 # Add extra layers on top of a "base" network (e.g. VGGNet or Inception).
 def AddExtraLayers(net, use_batchnorm=True,dim=128):
@@ -72,6 +73,9 @@ def AddExtraLayers(net, use_batchnorm=True,dim=128):
 train_data = json_data['batches_dir']
 resize_width = 300
 resize_height = 300
+if is_small_object:
+    resize_width = 500
+    resize_height = 500
 resize = "{}x{}".format(resize_width, resize_height)
 batch_sampler = [
         {
@@ -267,7 +271,6 @@ loss_param = {
 
 # parameters for generating priors.
 # minimum dimension of input image
-min_dim = 300
 # conv4_3 ==> 38 x 38
 # fc7 ==> 19 x 19
 # conv6_2 ==> 10 x 10
@@ -277,8 +280,14 @@ min_dim = 300
 # pool6 ==> 1 x 1
 mbox_source_layers = ['conv4_3', 'fc7', 'conv6_2', 'conv7_2', 'conv8_2', 'pool6']
 # in percent %
+
+min_dim = 300
 min_ratio = 20
 max_ratio = 95
+if is_small_object is True:
+    min_dim = 500
+    min_ratio = 8
+    max_ratio = 44
 step = int(math.floor((max_ratio - min_ratio) / (len(mbox_source_layers) - 2)))
 min_sizes = []
 max_sizes = []
@@ -288,14 +297,8 @@ for ratio in xrange(min_ratio, max_ratio + 1, step):
 min_sizes = [min_dim * 10 / 100.] + min_sizes
 max_sizes = [[]] + max_sizes
 aspect_ratios = [[2], [2, 3], [2, 3], [2, 3], [2, 3], [2, 3]]
-if json_data.get('multibox') is False:
-    #aspect_ratios = [[], [], [], [], [], []]
-    aspect_ratios = [[], [], [], [], [], []]
 multihead_kernel_size = 3
 multihead_pad = 1
-if json_data.get('reduce') is True:
-    multihead_kernel_size = 1
-    multihead_pad = 0
 # L2 normalize conv4_3.
 normalizations = [20, -1, -1, -1, -1, -1]
 # variance used to encode/decode prior bboxes.
@@ -348,6 +351,9 @@ freeze_layers = ['conv1_1', 'conv1_2', 'conv2_1', 'conv2_2']
 
 max_iter = json_data['iterator']
 
+if is_small_object:
+    base_lr *= 0.5
+
 solver_param = {
     # Train parameters
     'base_lr': base_lr,
@@ -375,12 +381,13 @@ solver_param = {
     }
 
 # parameters for generating detection output.
+top_k_factor = 2 if is_small_object is True else 1
 det_out_param = {
     'num_classes': num_classes,
     'share_location': share_location,
     'background_label_id': background_label_id,
     'has_angle': has_angle,
-    'nms_param': {'nms_threshold': 0.3, 'top_k': 400},
+    'nms_param': {'nms_threshold': 0.3, 'top_k': 400*top_k_factor},
     #'save_output_param': {
     #    'output_directory': output_result_dir,
     #    'output_name_prefix': "comp4_det_test_",
@@ -389,7 +396,7 @@ det_out_param = {
     #    'name_size_file': name_size_file,
     #    'num_test_image': num_test_image,
     #    },
-    'keep_top_k': 200,
+    'keep_top_k': 200*top_k_factor,
     'confidence_threshold': 0.01,
     'code_type': code_type,
     }
