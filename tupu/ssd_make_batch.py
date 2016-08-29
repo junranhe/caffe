@@ -79,10 +79,14 @@ def gen_data_from_json(json_data, db_path):
             print 'image not exits:', filepath
             continue
         try:
-            tm = cv2.imread(filepath)
+            tm = cv2.imread(filepath,cv2.IMREAD_COLOR)
+            h = tm.shape[0]
+            w = tm.shape[1]
             if tm is None:
                 print 'image None:', filepath
+                del tm
                 continue
+            del tm
         except Exception,ex:
             print 'image read error:', filepath, ' Exception: ', ex
             continue
@@ -111,7 +115,9 @@ def gen_data_from_json(json_data, db_path):
             box['ymax'] = ymax
             box['degree'] = degree
 
-        w,h = PIL.Image.open(filepath).size
+        #tm_w,tm_h = PIL.Image.open(filepath).size
+        #assert(w == tm_w)
+        #assert(h == tm_h)
         for box in label:
             if float(box['xmin']) > float(box['xmax']) \
                 or float(box['ymin']) > float(box['ymax']) \
@@ -121,18 +127,18 @@ def gen_data_from_json(json_data, db_path):
                 is_ok = False
                 break
         if is_ok:
-            objs[filepath] = label
+            objs[filepath] = json.dumps(label)
     print 'A total of %d images' % len(objs)
     cnt = 0
     arr = objs.items()
     random.shuffle(arr)
     db = lmdb.open(db_path, map_size=int(1e12))
     with db.begin(write=True) as in_txn:
-    	for k,v in arr:
+        for k,v in arr:
             key = '%8d' % cnt
-            in_txn.put(key, object2string(k, v))
+            in_txn.put(key, object2string(k, json.loads(v)))
             cnt += 1
-            if cnt % 1000 == 0:
+            if cnt % 250 == 0:
                 print 'MeanProcessed %d images' % cnt
     db.close()
     print 'mean_value'
@@ -262,8 +268,8 @@ if __name__ == "__main__":
     #json_path = '/home/kevin/tp_server/tpdetect/train_angle_batch.json'
     #db_path = '/world/data-c5/ssd_test/angle_train_lmdb_x10_2'
 
-    json_path = '/world/data-c6/dl-data/57328ea10c4ac91c23d95f72/57b6840264eb0db6507fdb5d/14715791387660.8223382802680135.json'
-    db_path = '~/temp_debug'
+    json_path = '/world/data-c6/dl-data/57328ea10c4ac91c23d95f72/57bff7d013ae6e947e67d6d8/14721986120200.5106248911470175.json'
+    #db_path = '~/temp_debug'
     json_data = json.load(open(json_path, 'r'))
     gen_data_from_json(json_data,json_data['batches_dir'])
 
