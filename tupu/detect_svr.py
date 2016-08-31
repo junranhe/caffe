@@ -16,13 +16,23 @@ import json
 
 #caffemodel = '/world/data-c6/dl-data/57328ea10c4ac91c23d95f72/57b58a8ed444324f304cd7d4/VGG_SSD_300x300_iter_70000.caffemodel'
 prototxt = '/world/data-c5/ssd_test/angle_debug_output/deploy.prototxt'
-caffemodel = '/world/data-c5/ssd_test/angle_debug_output/VGG_SSD_500x500_iter_70000.caffemodel'
+caffemodel = '/world/data-c5/ssd_test/angle_debug_output/VGG_SSD_500x500_iter_16000.caffemodel'
 #dict_json = json.load(open('/world/data-c5/ssd_test/full_char_exp_train_lmdb/dict.json','r'))
 #label_dict = {v:k for k, v in dict_json.items()}
+#prototxt = '/world/data-c5/ssd_models/text_batch_64/deploy.prototxt'
+#caffemodel = '/world/data-c5/ssd_models/text_batch_64/VGG_SSD_300x300_iter_80000.caffemodel'
+PASCAL_CLASSES = ('__background__',
+           'aeroplane', 'bicycle', 'bird', 'boat',
+           'bottle', 'bus', 'car', 'cat', 'chair',
+           'cow', 'diningtable', 'dog', 'horse',
+           'motorbike', 'person', 'pottedplant',
+           'sheep', 'sofa', 'train', 'tvmonitor')
+
+
 import ssd_detector
 
 ssd_detector.gpu_init(6)
-net = ssd_detector.SSDDetector(caffemodel, prototxt, None)
+net = ssd_detector.SSDDetector(caffemodel, prototxt, PASCAL_CLASSES)
 class TestHandler(tornado.web.RequestHandler):
     def post(self):
         global net
@@ -30,6 +40,13 @@ class TestHandler(tornado.web.RequestHandler):
             im = cv2.imdecode(np.asarray(bytearray(f['body']), dtype = np.uint8),\
                               cv2.IMREAD_COLOR)
             image_data = net.detect_image_ex(im, None, True)
+            #new_clss, new_dets, new_groups, new_rotate_boxes, new_crop_mat, new_degree \
+            #     = net.detect_group(im, False, True)
+            #for i , mat in enumerate(new_crop_mat):
+            #    continue
+                #print i , ":", new_rotate_boxes[i]
+                #print mat.shape
+                #cv2.imwrite('~/debug_image/' + str(i) + '.jpg', mat)
             if image_data:
                 self.set_header('Content-Type', 'image/jpg')
                 self.write(bytes(image_data))

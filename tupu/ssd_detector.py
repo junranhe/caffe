@@ -57,7 +57,7 @@ class SSDDetector(object):
                 degree = ssd_util.angle2degree(angle, w, h)
                 det = [xmin, ymin, xmax,ymax,score, degree]
             else:
-                det = [xmin, ymin, xmax, ymax, score]
+                det = [xmin, ymin, xmax, ymax, score, 0.]
             dets.append(det)
             clss.append(label)
         return clss,dets
@@ -95,7 +95,7 @@ class SSDDetector(object):
         l = dets.shape[0]
         used = {}
         res = []
-        k_array = [math.tan(math.radians(degree)) for degree in [0,4,8,12,16,20,24,28,32,36,176,172,168,164,160, 156,152,148, 144]]
+        #k_array = [math.tan(math.radians(degree)) for degree in [0,4,8,12,16,20,24,28,32,36,176,172,168,164,160, 156,152,148, 144]]
         def compute_distance(k,x0,y0, x1, y1):
             b = y0 - (k*x0)
             d = abs(k*x1 - y1 + b)/math.sqrt(k*k + 1)
@@ -112,6 +112,8 @@ class SSDDetector(object):
             for i in range(l):
                 if i in used:
                     continue
+                cur_degree = dets[i][5]
+                k_array = [math.tan(math.radians(degree)) for degree in [cur_degree, cur_degree + 3, cur_degree-3]]
                 for k in k_array:
                     line = [i]
                     for j in range(l):
@@ -312,7 +314,7 @@ class SSDDetector(object):
 
         x_c = (l_x + r_x)/2
         y_c = (l_y + r_y)/2
-        rows,cols = im_data.shape[:2]
+        cols, rows = im_data.shape[:2]
         M = cv2.getRotationMatrix2D((x_c, y_c), degree,1)
         im_rotate = cv2.warpAffine(im_data,M,(rows,cols))
 
@@ -351,9 +353,12 @@ class SSDDetector(object):
         return i.data
 
     def detect_group(self, im_data, has_angle = False, is_crop = False):
+        import time
         clss,dets = self.internal_detect(im_data, has_angle)
         clss,dets = self.nms(clss, dets, 0.9)
+        pre_time = time.time()
         lines = self.ocr_group(dets)
+        print 'ocr_group:', time.time() - pre_time
         font = cv2.FONT_HERSHEY_SIMPLEX
         new_clss = []
         new_dets = []
@@ -384,7 +389,9 @@ class SSDDetector(object):
                    #print 'shape:',im_rotate.shape
                    #print 'box:',(xmin, ymin, xmax, ymax)
                    #print 'write'
-                   #cv2.imwrite('/home/zhangjiguo/test_debug/' +str(index) + '.jpg', crop_mat)
+                   #f_name = str(group) + '_' + str(index)
+                   #print f_name , ':', rotate_boxes[index] , '?', (xmin, ymin, xmax, ymax), '?shape:', im_rotate.shape
+                   #cv2.imwrite('/home/kevin/debug_image/' + f_name + '.jpg', crop_mat)
                    new_crop_mat.append(crop_mat)
         return new_clss, new_dets, new_groups, new_rotate_boxes, new_crop_mat, new_degree
 

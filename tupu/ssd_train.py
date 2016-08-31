@@ -284,17 +284,19 @@ mbox_source_layers = ['conv4_3', 'fc7', 'conv6_2', 'conv7_2', 'conv8_2', 'pool6'
 min_dim = 300
 min_ratio = 20
 max_ratio = 95
+start_ratio = 10
 if is_small_object is True:
     min_dim = 500
     min_ratio = 8
     max_ratio = 44
+    start_ratio = 4
 step = int(math.floor((max_ratio - min_ratio) / (len(mbox_source_layers) - 2)))
 min_sizes = []
 max_sizes = []
 for ratio in xrange(min_ratio, max_ratio + 1, step):
   min_sizes.append(min_dim * ratio / 100.)
   max_sizes.append(min_dim * (ratio + step) / 100.)
-min_sizes = [min_dim * 10 / 100.] + min_sizes
+min_sizes = [min_dim * start_ratio / 100.] + min_sizes
 max_sizes = [[]] + max_sizes
 aspect_ratios = [[2], [2, 3], [2, 3], [2, 3], [2, 3], [2, 3]]
 multihead_kernel_size = 3

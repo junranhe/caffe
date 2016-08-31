@@ -8,13 +8,21 @@
 #include <string>
 #include <utility>
 #include <vector>
-
+#include <cuda_runtime.h>
 #include "boost/filesystem.hpp"
 #include "boost/foreach.hpp"
-
 #include "caffe/layers/detection_output_layer.hpp"
 
+
 namespace caffe {
+
+void print_time(const char* msg, cudaEvent_t & start, cudaEvent_t & stop) {
+  float total = 0.0;
+  cudaEventSynchronize(start);
+  cudaEventSynchronize(stop);
+  cudaEventElapsedTime(&total,start,stop);
+  printf("%s:%f(ms)\n", msg, total);
+}
 
 template <typename Dtype>
 void DetectionOutputLayer<Dtype>::Forward_gpu(
@@ -31,10 +39,18 @@ void DetectionOutputLayer<Dtype>::Forward_gpu(
   bbox_preds.ReshapeLike(*(bottom[0]));
   Dtype* bbox_data = bbox_preds.mutable_gpu_data();
   const int loc_count = bbox_preds.count();
+
+  cudaEvent_t start,stop;
+  cudaEventCreate(&start);
+  cudaEventCreate(&stop);
+
+  cudaEventRecord(start, 0);
   DecodeBBoxesGPU<Dtype>(loc_count,tm_loc_dim, 
       loc_data, prior_data, code_type_,
       variance_encoded_in_target_, num_priors_, share_location_,
       num_loc_classes_, background_label_id_, bbox_data);
+  cudaEventRecord(stop, 0);
+  print_time("decode",start, stop);
   if (!share_location_) {
     CHECK(false);
     Blob<Dtype> bbox_permute;
@@ -45,6 +61,7 @@ void DetectionOutputLayer<Dtype>::Forward_gpu(
     caffe_copy(loc_count, bbox_permute_data, bbox_data);
   }
 
+  cudaEventRecord(start,0);
   // Retrieve all confidences.
   const Dtype* conf_cpu_data;
   Blob<Dtype> conf_permute;
@@ -53,7 +70,10 @@ void DetectionOutputLayer<Dtype>::Forward_gpu(
   PermuteDataGPU<Dtype>(conf_permute.count(), bottom[1]->gpu_data(),
       num_classes_, num_priors_, 1, conf_permute_data);
   conf_cpu_data = conf_permute.cpu_data();
+  cudaEventRecord(stop, 0);
+  print_time("permute", start, stop);  
 
+  cudaEventRecord(start, 0);
   int num_kept = 0;
   vector<map<int, vector<int> > > all_indices;
   for (int i = 0; i < num; ++i) {
@@ -106,11 +126,13 @@ void DetectionOutputLayer<Dtype>::Forward_gpu(
       num_kept += num_det;
     }
   }
-
+  cudaEventRecord(stop, 0);
+  print_time("nms", start, stop);
   if (num_kept == 0) {
     LOG(INFO) << "Couldn't find any detections";
     return;
   }
+  cudaEventRecord(start, 0);
   vector<int> top_shape(2, 1);
   top_shape.push_back(num_kept);
   top_shape.push_back(output_dim);
@@ -287,6 +309,8 @@ void DetectionOutputLayer<Dtype>::Forward_gpu(
       }
     }
   }
+  cudaEventRecord(stop, 0);
+  print_time("output", start, stop);
   if (visualize_) {
 #ifdef USE_OPENCV
     vector<cv::Mat> cv_imgs;
