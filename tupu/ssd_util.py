@@ -1,4 +1,5 @@
 import math
+import numpy as np
 # shunshizhen
 def rotate_point(x, y, x_c, y_c, degree):
    x_new = x - x_c
@@ -83,17 +84,95 @@ def compute_sub_rotate_rec(xmin, ymin, xmax, ymax, degree):
     points = [(x_min_new, y_min_new), (x_max_new, y_min_new), (x_max_new, y_max_new), (x_min_new, y_max_new)]
     return [rotate_point(x, y, x_c, y_c, degree) for x, y in points]    
 
+def ocr_group(dets):
+    def compute_center(x0,y0,x1,y1):
+        x_c = (x0 + x1)/2
+        y_c = (y0 + y1)/2
+        x_d = (x1 - x0)
+        y_d = (y1 - y0)
+        r = math.sqrt(x_d*x_d + y_d*y_d)/2
+        return x_c, y_c , r
+    def compute_distance(k,x0,y0, x1, y1):
+        b = y0 - (k*x0)
+        d = abs(k*x1 - y1 + b)/math.sqrt(k*k + 1)
+        return d
+    def is_inline(k, a_point, b_point):
+        x0, y0, r0 = a_point
+        x1, y1, r1 = b_point
+        if k is None:
+            distance = abs(x1 - x0)
+            return distance < r0/2 and distance < r1/2
+        distance = compute_distance(k, x0, y0, x1, y1)
+        return distance < r0/4 and distance < r1/4
+    dets = np.array(dets, np.float32)
+    l = dets.shape[0]
+    points = [compute_center(dets[i][0], dets[i][1], dets[i][2], dets[i][3]) for i in range(l)]
+    point_to_line = [[] for i in range(l)]
+    line_to_point = [[set() for k in range(4) ] for i in range(l)]
+    for i in range(l):
+        cur_degree = dets[i][5]
+        k_array = [math.tan(math.radians(degree)) for degree in [cur_degree, cur_degree + 3, cur_degree-3]] \
+                  + [None]
+        for k_index, k in enumerate(k_array):
+            for j in range(l):
+                if is_inline(k, points[i], points[j]):
+                    line_to_point[i][k_index].add(j)
+                    point_to_line[j].append((i, k_index))
+    point_left = set([i for i in range(l)])
 
-#width = 3
-#height = 7
-#degree = -55
-#angle = degree2angle(degree, width, height)
-#degree_new = angle2degree(angle, width, height)
-#print 'angle:%f, degree_new:%f' %(angle, degree_new)
-
-#print degree2angle(45, 2, 1)
-#print degree2angle(45, 1, 2)
-#print compute_warp_rec(0,0, 2, 2, 45)
-#print rotate_point(2,2, 0, 0, 45)
-#print rotate_point(2,2, 0, 0,-45)
-
+    res = []
+    def x_cmp(a, b):
+        x1 = dets[a][0]
+        x2 = dets[b][0]
+        if x1 < x2:
+            return -1
+        elif x1 > x2:
+            return 1
+        return 0
+    def y_cmp(a, b):
+        y1 = dets[a][1]
+        y2 = dets[b][1]
+        if y1 < y2:
+            return -1
+        elif y1 > y2:
+            return 1
+        return 0
+                                       
+    while len(point_left) > 0:
+        max_len = 0
+        max_flag = None
+        for i in range(l):
+            for k_index, tm_line in enumerate(line_to_point[i]):
+                if len(tm_line) > max_len:
+                    max_len = len(tm_line)
+                    max_flag = (tm_line, i, k_index)
+        max_line, max_line_index, max_k_index = max_flag
+        max_points = [p for p in max_line]
+        for p_index in max_points:
+            other_lines = point_to_line[p_index]
+            point_left.remove(p_index)
+            for i_index, k_index in other_lines:
+                line_to_point[i_index][k_index].remove(p_index)
+        if max_k_index == 3:
+            max_points.sort(y_cmp)
+        else:
+            max_points.sort(x_cmp)    
+        res.append(max_points)
+    def line_cmp(a,b):
+        assert len(a) > 0 and len(b) > 0
+        x_a = dets[a[0]][0]
+        y_a = dets[a[0]][1]
+        x_b = dets[b[0]][0]
+        y_b = dets[b[0]][1]
+        if y_a < y_b:
+            return -1
+        elif y_a > y_b:
+            return 1
+        elif x_a < x_b:
+            return -1
+        elif x_a > x_b:
+            return 1
+        return 0
+    res.sort(line_cmp)
+        
+    return res 

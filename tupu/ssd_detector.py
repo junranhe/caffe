@@ -90,7 +90,14 @@ class SSDDetector(object):
                                   color, 1)
             cv2.putText(im_data, str(class_name), (int(bbox[0]), int(bbox[1])), font, 0.5, (0,0,255), 1)
 
+            
     def ocr_group(self, dets):
+        import time
+        pre_time = time.time()
+        res = ssd_util.ocr_group(dets)
+        #print res
+        print 'ssd_ocr_group:', time.time() - pre_time
+        return res
         dets = np.array(dets, np.float32)
         l = dets.shape[0]
         used = {}
@@ -100,6 +107,8 @@ class SSDDetector(object):
             b = y0 - (k*x0)
             d = abs(k*x1 - y1 + b)/math.sqrt(k*k + 1)
             return d
+
+        cache_point = {}
         def compute_center(x0,y0,x1,y1):
             x_c = (x0 + x1)/2
             y_c = (y0 + y1)/2
@@ -119,8 +128,12 @@ class SSDDetector(object):
                     for j in range(l):
                         if i == j or j in used:
                             continue
-                        x0, y0, r0 =compute_center(dets[i][0], dets[i][1], dets[i][2], dets[i][3])
-                        x1, y1, r1 =compute_center(dets[j][0], dets[j][1], dets[j][2], dets[j][3])
+                        if i not in cache_point:
+                            cache_point[i] = compute_center(dets[i][0], dets[i][1], dets[i][2], dets[i][3])
+                        x0, y0, r0 = cache_point[i]
+                        if j not in cache_point:
+                            cache_point[j] = compute_center(dets[j][0], dets[j][1], dets[j][2], dets[j][3])
+                        x1, y1, r1 = cache_point[j]                      
                         distance = compute_distance(k, x0, y0, x1, y1)
                         if distance < r0/4 and distance < r1/4:
                             line.append(j)
@@ -181,6 +194,7 @@ class SSDDetector(object):
                 return 1
             return 0
         res.sort(line_cmp)
+        print 'ocr group time:', time.time() - pre_time
         return res
     def nms(self, clss, dets, th):
         used = {}
@@ -249,7 +263,7 @@ class SSDDetector(object):
         #print 'old:', len(dets)
         #clss,dets = self.nms(clss, dets, 0.6)
         #prit 'nms:',len(dets)
-        lines = self.ocr_group(dets)
+        lines = ssd_util.ocr_group(dets)
         print lines
         font = cv2.FONT_HERSHEY_SIMPLEX
         for l in lines:
@@ -330,7 +344,7 @@ class SSDDetector(object):
 
     def detect_image_rotate(self, im_data, label_dict = None, has_angle = False):
         clss,dets = self.internal_detect(im_data, has_angle)
-        lines = self.ocr_group(dets)
+        lines = ssd_util.ocr_group(dets)
         font = cv2.FONT_HERSHEY_SIMPLEX
         color = (random.randint(0,255), random.randint(0,255), random.randint(0,255))
         im_rotate, boxes, rotate_boxes, _= self.get_line_rotate_image_and_boxes(im_data, lines[0], dets)
@@ -353,12 +367,9 @@ class SSDDetector(object):
         return i.data
 
     def detect_group(self, im_data, has_angle = False, is_crop = False):
-        import time
         clss,dets = self.internal_detect(im_data, has_angle)
         clss,dets = self.nms(clss, dets, 0.9)
-        pre_time = time.time()
-        lines = self.ocr_group(dets)
-        print 'ocr_group:', time.time() - pre_time
+        lines = ssd_util.ocr_group(dets)
         font = cv2.FONT_HERSHEY_SIMPLEX
         new_clss = []
         new_dets = []
