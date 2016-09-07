@@ -53,7 +53,10 @@ class SSDDetector(object):
             if xmin >= xmax or ymin >= ymax:
                 continue
             if has_angle:
-                angle = float((box[7]))
+                if box.shape[0] == 8:
+                    angle = float((box[7]))
+                else:
+                    angle = 0.0
                 degree = ssd_util.angle2degree(angle, w, h)
                 det = [xmin, ymin, xmax,ymax,score, degree]
             else:
@@ -348,6 +351,9 @@ class SSDDetector(object):
         font = cv2.FONT_HERSHEY_SIMPLEX
         color = (random.randint(0,255), random.randint(0,255), random.randint(0,255))
         im_rotate, boxes, rotate_boxes, _= self.get_line_rotate_image_and_boxes(im_data, lines[0], dets)
+        rotate_h = im_rotate.shape[0]
+        rotate_w = im_rotate.shape[1]
+        
         for index, box in enumerate(boxes):
             for k in range(len(box)):
                 cv2.line(im_rotate, box[k], box[(k+1)%len(box)], color, 1)
@@ -358,10 +364,23 @@ class SSDDetector(object):
                 ymin = min(y, ymin)
                 xmax = max(x, xmax)
                 ymax = max(y, ymax)
-            #print im_rotate.shape
-            #print (xmin, ymin, xmax, ymax)
+            h = ymax - ymin
+            w = xmax - xmin
+            diff = 0
+            if h > w:
+                diff = h - w
+                xmax = xmax + int(diff/2)
+                xmin = xmin - int(diff/2)
+                print 'diff:', diff
+            if xmax >= rotate_w:
+                xmax = rotate_w -1
+            if xmin < 0:
+                xmin = 0
+            if ymax >= rotate_h:
+                ymax = rotwate_h -1
+            if ymin < 0:
+                ymin = 0
             crop_mat = im_rotate[ymin:ymax, xmin:xmax]
-            #cv2.imwrite('/home/zhangjiguo/test_debug/' + str(index) + '.jpg', crop_mat)
 
         r, i = cv2.imencode('.jpg', im_rotate)
         return i.data
@@ -380,6 +399,8 @@ class SSDDetector(object):
         for group, l in enumerate(lines):
             im_rotate, crop_boxes, rotate_boxes, degree = \
                 self.get_line_rotate_image_and_boxes(im_data, l, dets)
+            rotate_h = im_rotate.shape[0]
+            rotate_w = im_rotate.shape[1]
             for index, i in enumerate(l):
                 bbox = dets[i][ :4]
                 score = dets[i][4]
@@ -396,13 +417,24 @@ class SSDDetector(object):
                        ymin = min(y, ymin)
                        xmax = max(x, xmax)
                        ymax = max(y, ymax)
+                   h = ymax - ymin
+                   w = xmax - xmin
+                   diff = 0
+                   if h > w:
+                       diff = h - w
+                       xmax = xmax + int(diff/6)
+                       xmin = xmin - int(diff/6)
+                       print 'diff:', diff
+                   if xmax >= rotate_w:
+                       xmax = rotate_w -1
+                   if xmin < 0:
+                       xmin = 0
+                   if ymax >= rotate_h:
+                       ymax = rotwate_h -1
+                   if ymin < 0:
+                       ymin = 0
+ 
                    crop_mat = im_rotate[ymin:ymax, xmin:xmax]
-                   #print 'shape:',im_rotate.shape
-                   #print 'box:',(xmin, ymin, xmax, ymax)
-                   #print 'write'
-                   #f_name = str(group) + '_' + str(index)
-                   #print f_name , ':', rotate_boxes[index] , '?', (xmin, ymin, xmax, ymax), '?shape:', im_rotate.shape
-                   #cv2.imwrite('/home/kevin/debug_image/' + f_name + '.jpg', crop_mat)
                    new_crop_mat.append(crop_mat)
         return new_clss, new_dets, new_groups, new_rotate_boxes, new_crop_mat, new_degree
 
