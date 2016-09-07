@@ -18,7 +18,7 @@ import json
 json_data = json.load(open(sys.argv[1], 'r'))
 
 has_angle = True #json_data.get('has_angle') == True
-is_small_object = json_data.get('small_object') == True
+is_small_object = False
 
 # Add extra layers on top of a "base" network (e.g. VGGNet or Inception).
 def AddExtraLayers(net, use_batchnorm=True,dim=128):
@@ -73,9 +73,9 @@ def AddExtraLayers(net, use_batchnorm=True,dim=128):
 train_data = json_data['batches_dir']
 resize_width = 300
 resize_height = 300
-if is_small_object:
-    resize_width = 500
-    resize_height = 500
+#if is_small_object:
+#    resize_width = 500
+#    resize_height = 500
 resize = "{}x{}".format(resize_width, resize_height)
 batch_sampler = [
         {
@@ -285,11 +285,11 @@ min_dim = 300
 min_ratio = 20
 max_ratio = 95
 start_ratio = 10
-if is_small_object is True:
-    min_dim = 500
-    min_ratio = 8
-    max_ratio = 44
-    start_ratio = 4
+#if is_small_object is True:
+#    min_dim = 500
+#    min_ratio = 8
+#    max_ratio = 44
+#    start_ratio = 4
 step = int(math.floor((max_ratio - min_ratio) / (len(mbox_source_layers) - 2)))
 min_sizes = []
 max_sizes = []
@@ -383,13 +383,13 @@ solver_param = {
     }
 
 # parameters for generating detection output.
-top_k_factor = 2 if is_small_object is True else 1
+#top_k_factor = 2 if is_small_object is True else 1
 det_out_param = {
     'num_classes': num_classes,
     'share_location': share_location,
     'background_label_id': background_label_id,
     'has_angle': has_angle,
-    'nms_param': {'nms_threshold': 0.3, 'top_k': 400*top_k_factor},
+    'nms_param': {'nms_threshold': 0.3, 'top_k': 600},
     #'save_output_param': {
     #    'output_directory': output_result_dir,
     #    'output_name_prefix': "comp4_det_test_",
@@ -398,7 +398,7 @@ det_out_param = {
     #    'name_size_file': name_size_file,
     #    'num_test_image': num_test_image,
     #    },
-    'keep_top_k': 200*top_k_factor,
+    'keep_top_k': 300,
     'confidence_threshold': 0.01,
     'code_type': code_type,
     }
