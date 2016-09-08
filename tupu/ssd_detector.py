@@ -54,7 +54,7 @@ class SSDDetector(object):
                 continue
             d_w = xmax - xmin
             d_h = ymax - ymin
-            if d_w * 20 < w or d_h * 20 < h:
+            if d_w * 40 < w or d_h * 20 < h:
                 continue 
             if has_angle:
                 if box.shape[0] == 8:
