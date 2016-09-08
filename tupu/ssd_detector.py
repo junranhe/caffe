@@ -18,11 +18,11 @@ class SSDDetector(object):
         self.prototxt = prototxt
         self.mean = np.array([104, 117, 123], np.uint8)
         self.net = caffe.Detector(prototxt, caffemodel,mean=self.mean)
-        
+
     def internal_detect(self, im, has_angle = False):
         h = im.shape[0]
         w = im.shape[1]
-        
+
         in_ = self.net.inputs[0]
         input_shape = self.net.blobs[in_].shape
         image_height = input_shape[2]
@@ -97,7 +97,7 @@ class SSDDetector(object):
                                   color, 1)
             cv2.putText(im_data, str(class_name), (int(bbox[0]), int(bbox[1])), font, 0.5, (0,0,255), 1)
 
-            
+
     def ocr_group(self, dets):
         import time
         pre_time = time.time()
@@ -140,7 +140,7 @@ class SSDDetector(object):
                         x0, y0, r0 = cache_point[i]
                         if j not in cache_point:
                             cache_point[j] = compute_center(dets[j][0], dets[j][1], dets[j][2], dets[j][3])
-                        x1, y1, r1 = cache_point[j]                      
+                        x1, y1, r1 = cache_point[j]
                         distance = compute_distance(k, x0, y0, x1, y1)
                         if distance < r0/4 and distance < r1/4:
                             line.append(j)
@@ -357,7 +357,7 @@ class SSDDetector(object):
         im_rotate, boxes, rotate_boxes, _= self.get_line_rotate_image_and_boxes(im_data, lines[0], dets)
         rotate_h = im_rotate.shape[0]
         rotate_w = im_rotate.shape[1]
-        
+
         for index, box in enumerate(boxes):
             for k in range(len(box)):
                 cv2.line(im_rotate, box[k], box[(k+1)%len(box)], color, 1)
@@ -426,8 +426,12 @@ class SSDDetector(object):
                    diff = 0
                    if h > w:
                        diff = h - w
-                       xmax = xmax + int(diff/6)
-                       xmin = xmin - int(diff/6)
+                       #xmax = xmax + int(diff/6)
+                       #xmin = xmin - int(diff/6)
+                       xmax = xmax + int(diff/4)
+                       xmin = xmin - int(diff/4)
+                       ymax = ymax - int(diff/4)
+                       ymin = ymin + int(diff/4)
                        print 'diff:', diff
                    if xmax >= rotate_w:
                        xmax = rotate_w -1
@@ -437,7 +441,7 @@ class SSDDetector(object):
                        ymax = rotwate_h -1
                    if ymin < 0:
                        ymin = 0
- 
+
                    crop_mat = im_rotate[ymin:ymax, xmin:xmax]
                    new_crop_mat.append(crop_mat)
         return new_clss, new_dets, new_groups, new_rotate_boxes, new_crop_mat, new_degree
