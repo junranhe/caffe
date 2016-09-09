@@ -10,13 +10,13 @@ namespace caffe { namespace db {
 void LMDB::Open(const string& source, Mode mode) {
   MDB_CHECK(mdb_env_create(&mdb_env_));
   if (mode == NEW) {
-    CHECK_EQ(mkdir(source.c_str(), 0744), 0) << "mkdir " << source << " failed";
+    CHECK_EQ(mkdir(source.c_str(), 0777) 0) << "mkdir " << source << " failed";
   }
   int flags = 0;
   if (mode == READ) {
     flags = MDB_RDONLY | MDB_NOTLS;
   }
-  int rc = mdb_env_open(mdb_env_, source.c_str(), flags, 0664);
+  int rc = mdb_env_open(mdb_env_, source.c_str(), flags, 0777);
 #ifndef ALLOW_LMDB_NOLOCK
   MDB_CHECK(rc);
 #else
@@ -27,7 +27,7 @@ void LMDB::Open(const string& source, Mode mode) {
     MDB_CHECK(mdb_env_create(&mdb_env_));
     // Try again with MDB_NOLOCK
     flags |= MDB_NOLOCK;
-    MDB_CHECK(mdb_env_open(mdb_env_, source.c_str(), flags, 0664));
+    MDB_CHECK(mdb_env_open(mdb_env_, source.c_str(), flags, 0777));
   } else {
     MDB_CHECK(rc);
   }
