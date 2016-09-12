@@ -11,6 +11,7 @@ import json
 import PIL
 import random
 import ssd_util
+os.umask(0777)
 def read_file_datum(filepath, datum):
     datum.encoded = True
     datum.label = -1
@@ -132,7 +133,7 @@ def gen_data_from_json(json_data, db_path):
     cnt = 0
     arr = objs.items()
     random.shuffle(arr)
-    db = lmdb.open(db_path, map_size=int(1e12))
+    db = lmdb.open(db_path, map_size=int(1e12), mode=0666)
     with db.begin(write=True) as in_txn:
         for k,v in arr:
             key = '%8d' % cnt
