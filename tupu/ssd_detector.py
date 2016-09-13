@@ -432,7 +432,6 @@ class SSDDetector(object):
                        xmin = xmin - int(diff/4)
                        ymax = ymax - int(diff/4)
                        ymin = ymin + int(diff/4)
-                       print 'diff:', diff
                    if xmax >= rotate_w:
                        xmax = rotate_w -1
                    if xmin < 0:
