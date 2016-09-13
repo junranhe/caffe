@@ -55,7 +55,7 @@ class SSDDetector(object):
             d_w = xmax - xmin
             d_h = ymax - ymin
             if d_w * 40 < w or d_h * 20 < h:
-                continue 
+                continue
             if has_angle:
                 if box.shape[0] == 8:
                     angle = float((box[7]))
@@ -375,7 +375,7 @@ class SSDDetector(object):
                 diff = h - w
                 xmax = xmax + int(diff/2)
                 xmin = xmin - int(diff/2)
-                print 'diff:', diff
+                #print 'diff:', diff
             if xmax >= rotate_w:
                 xmax = rotate_w -1
             if xmin < 0:
@@ -432,7 +432,7 @@ class SSDDetector(object):
                        xmin = xmin - int(diff/4)
                        ymax = ymax - int(diff/4)
                        ymin = ymin + int(diff/4)
-                       print 'diff:', diff
+                       #print 'diff:', diff
                    if xmax >= rotate_w:
                        xmax = rotate_w -1
                    if xmin < 0:
