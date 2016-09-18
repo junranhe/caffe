@@ -55,7 +55,7 @@ class SSDDetector(object):
             d_w = xmax - xmin
             d_h = ymax - ymin
             if d_w * 40 < w or d_h * 20 < h:
-                continue 
+                continue
             if has_angle:
                 if box.shape[0] == 8:
                     angle = float((box[7]))
@@ -375,13 +375,12 @@ class SSDDetector(object):
                 diff = h - w
                 xmax = xmax + int(diff/2)
                 xmin = xmin - int(diff/2)
-                print 'diff:', diff
             if xmax >= rotate_w:
                 xmax = rotate_w -1
             if xmin < 0:
                 xmin = 0
             if ymax >= rotate_h:
-                ymax = rotwate_h -1
+                ymax = rotate_h -1
             if ymin < 0:
                 ymin = 0
             crop_mat = im_rotate[ymin:ymax, xmin:xmax]
@@ -437,7 +436,7 @@ class SSDDetector(object):
                    if xmin < 0:
                        xmin = 0
                    if ymax >= rotate_h:
-                       ymax = rotwate_h -1
+                       ymax = rotate_h -1
                    if ymin < 0:
                        ymin = 0
 
