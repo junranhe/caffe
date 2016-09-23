@@ -11,7 +11,7 @@ import json
 import PIL
 import random
 import ssd_util
-os.umask(0777)
+os.umask(0)
 def read_file_datum(filepath, datum):
     datum.encoded = True
     datum.label = -1
