@@ -1,0 +1,3 @@
+[submodule "pynetbuilder"]
+	path = pynetbuilder
+	url = https://github.com/jay-mahadeokar/pynetbuilder.git
