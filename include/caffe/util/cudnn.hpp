@@ -91,8 +91,13 @@ template <typename Dtype>
 inline void createFilterDesc(cudnnFilterDescriptor_t* desc,
     int n, int c, int h, int w) {
   CUDNN_CHECK(cudnnCreateFilterDescriptor(desc));
+#if CUDNN_VERSION >= 5000
+  CUDNN_CHECK(cudnnSetFilter4dDescriptor(*desc, dataType<Dtype>::type, CUDNN_TENSOR_NCHW,
+      n, c, h, w));
+#else
   CUDNN_CHECK(cudnnSetFilter4dDescriptor(*desc, dataType<Dtype>::type,
       n, c, h, w));
+#endif
 }
 
 template <typename Dtype>
@@ -123,8 +128,13 @@ inline void createPoolingDesc(cudnnPoolingDescriptor_t* pool_desc,
     LOG(FATAL) << "Unknown pooling method.";
   }
   CUDNN_CHECK(cudnnCreatePoolingDescriptor(pool_desc));
+#if CUDNN_VERSION >= 5000
+    CUDNN_CHECK(cudnnSetPooling2dDescriptor(*pool_desc, *mode, CUDNN_NOT_PROPAGATE_NAN, h, w,
+        pad_h, pad_w, stride_h, stride_w));
+#else
   CUDNN_CHECK(cudnnSetPooling2dDescriptor(*pool_desc, *mode, h, w,
         pad_h, pad_w, stride_h, stride_w));
+#endif
 }
 
 }  // namespace cudnn

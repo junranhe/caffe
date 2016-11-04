@@ -30,6 +30,9 @@ void CuDNNReLULayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
 
 template <typename Dtype>
 CuDNNReLULayer<Dtype>::~CuDNNReLULayer() {
+#if CUDNN_VERSION >= 5000
+  CUDNN_CHECK(cudnnDestroyActivationDescriptor(activation_desc_));
+#endif
   // Check that handles have been setup before destroying.
   if (!handles_setup_) { return; }
 

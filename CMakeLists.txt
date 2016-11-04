@@ -1,3 +1,8 @@
+set(CMAKE_CXX_COMPILER /usr/local/gcc-5.3/bin/g++)
+set(CMAKE_C_COMPILER /usr/local/gcc-5.3/bin/gcc)
+set(ENV{CUDA_BIN_PATH} /usr/local/cuda-8.0)
+set(ENV{CUDNN_ROOT} /usr/local/cudnn-v5)
+
 cmake_minimum_required(VERSION 2.8.7)
 if(POLICY CMP0046)
   cmake_policy(SET CMP0046 NEW)
@@ -44,7 +49,11 @@ include(cmake/Dependencies.cmake)
 
 # ---[ Flags
 if(UNIX OR APPLE)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -Wall -lboost_regex")
+    if(${CUDA_VERSION} LESS 8.0)
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -Wall -Wl,-R'/usr/local/opencv-2.4.13/lib' -L/usr/local/opencv-2.4.13/lib -lboost_regex")
+    else()
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -Wall -D_GLIBCXX_USE_CXX11_ABI=0 -Wl,-rpath='/usr/local/gcc-5.3/lib64',-R'/usr/local/opencv-2.4.13/lib' -L/usr/local/gcc-5.3/lib64 -L/usr/local/opencv-2.4.13/lib -lstdc++ -lboost_regex")
+    endif()
 endif()
 
 caffe_set_caffe_link()
